@@ -1,0 +1,150 @@
+# Problems Faced and Bugs Encountered
+
+**Status:** ✍️ Continuous log — appended whenever a problem is solved · **Owner:** everyone; M6 curates · **Last updated:** 2026-09-05
+
+---
+
+## How to use this file
+
+**Append an entry the moment you solve something, not at the end of the day.** By evening you will have forgotten the detail that made it interesting, and the detail is the whole value.
+
+This is not overhead. It is **Round 2 material.** "Here is the bug we found in our own method and how we fixed it" is a stronger slide than "here is our architecture", because it demonstrates the one thing an architecture diagram cannot: that you understood what you were building well enough to catch yourself being wrong.
+
+### Entry format
+
+```
+### [P-nn] Short title
+**Date** · **Who** · **Severity:** blocker | major | minor | near-miss
+**Symptom** — what was observed
+**Root cause** — what was actually wrong
+**Fix** — what was changed
+**Lesson** — what we would tell another team
+```
+
+**Near-misses count.** A problem caught in design review before it reached code is worth logging — often more than a bug that reached code, because it is evidence of a working review process.
+
+---
+
+## Design-phase problems (before any code)
+
+### [P-01] Naive backward drift is scientifically wrong
+**2026-09-04** · M2 + design review · **Severity:** near-miss (would have been fatal)
+
+**Symptom** — The obvious reading of PS clause (b) — "trace the slick towards the origin" — suggests running a particle model backwards from the observed slick. Our first sketch did exactly that.
+
+**Root cause** — Oil transport is advection **plus** turbulent diffusion. Advection is a deterministic ODE and is time-reversible. **Diffusion is not** — it is entropy-increasing, and integrating it backwards is ill-posed, mathematically equivalent to un-stirring milk out of coffee. Run backwards with diffusion on, the particle cloud spreads and *looks* like an uncertainty envelope, but it is a forward diffusion process pointed backwards in time. It is not a posterior, and any number derived from it is meaningless.
+
+**Fix** — Restructured the entire inversion. Backward integration is used **only** with diffusion disabled, and **only** to narrow the search region. The actual answer comes from forward simulation of candidate sources, conditioned on reproducing the observed slick — Approximate Bayesian Computation. Physics only ever runs forward. A code-level assertion now makes the kernel refuse to run backwards with `K_h > 0`.
+
+**Lesson** — The intuitive reading of the requirement was the scientifically wrong one. *Backward integration narrows the search; forward simulation computes the answer.* We expect most teams attempting this problem statement to get this wrong, and to be unable to defend it when asked.
+
+---
+
+### [P-02] Per-particle rejection ABC computes the wrong likelihood
+**2026-09-05** · design review · **Severity:** near-miss (major)
+
+**Symptom** — Our corrected design said: *accept particle i if its position at t_obs falls inside the observed slick polygon; the origins of accepted particles are the posterior.* This felt rigorous. It is not.
+
+**Root cause** — That computes `p(x0, t0 | one oil parcel ended up somewhere in the slick)`, which is **not** `p(source | observed slick shape)`. Two consequences, both bad:
+1. **False coverage is never penalised.** A hypothesis whose particles smear across the entire scene earns exactly the same per-particle credit as one producing a compact cloud matching the slick precisely — because only hits are counted and misses cost nothing.
+2. **All shape and extent information is discarded** — the very quantities the characterisation stage had just computed.
+
+**Fix** — Replaced per-particle acceptance with a **hypothesis-level Bernoulli likelihood evaluated over the whole AOI**. Each source hypothesis is rasterised to a predicted oil-presence probability `q_h(x) = 1 − exp(−λρ_h(x))` and scored against the observed mask with `Σ [ m log q + (1−m) log(1−q) ]`. Predicted oil where the satellite saw none now costs you.
+
+**Lesson** — "We used ABC" is not the same as "we specified the right observation operator." The likelihood is where a Bayesian method is actually right or wrong, and it is the part everyone skips. Ask of any likelihood: *what does a hypothesis have to do to score badly?* If the answer is "nothing", it is not a likelihood.
+
+---
+
+### [P-03] The correct likelihood is 4×10⁹ operations per case
+**2026-09-05** · design review · **Severity:** near-miss (major)
+
+**Symptom** — The fix in P-02 requires evaluating over every AOI pixel for every hypothesis: ~4,096 × 10⁶ = 4×10⁹ operations. That would have dominated the entire 60 s runtime budget and probably broken it.
+
+**Root cause** — Naive literal implementation of the summation.
+
+**Fix** — The negative term has a closed form. Since `log(1 − q_h(x)) = −λ ρ_h(x)`, the sum over non-mask pixels collapses to `−λ × (particle mass landing outside the mask)` — a count, not a sum over pixels. The positive term runs only over mask pixels, a small set. Cost drops from O(hypotheses × pixels) to O(mask pixels + particles), roughly 2 s instead of 40 s, **with no approximation.**
+
+**Lesson** — Do the algebra before writing the loop. It also made the method *easier to explain*: the likelihood is now literally "reward for covering the observed slick, minus a penalty for every particle predicted where the satellite saw nothing." Correctness and clarity moved in the same direction, which is usually a sign you found the right form.
+
+---
+
+### [P-04] Track-integral scoring is a proxy, not a likelihood
+**2026-09-05** · design review · **Severity:** near-miss (major)
+
+**Symptom** — Our attribution design scored vessels by integrating the source posterior along each vessel's AIS track: `L(v) = ∫ p(x_v(t), t) dt`. This is a real improvement on invented weights, and we nearly shipped it.
+
+**Root cause** — It is still a *proxy*. `p(x0, t0 | obs)` is a marginal over **point** sources, but a real discharge from a moving vessel is a **line source in space-time**. Evaluating a point-source marginal along a line does not give you `p(obs | vessel v)`. It also inherits whatever smoothing the KDE applied, and it throws away the slick's shape a second time.
+
+**Fix** — Realised that a vessel's AIS track **is** the parameterisation of the line source — we already have it, so we do not need to invert for it. We can simulate it directly. Each vessel becomes a **generative hypothesis**: seed particles along its actual track at its actual times, forward-simulate, and evaluate the *same* observation operator from P-02. All candidates are seeded into one simulation, distinguished by `origin_marker`, so ~20 vessel hypotheses cost one run rather than twenty.
+
+**Lesson** — The best version of this was cheaper *and* more correct than the version we nearly built. When the principled approach looks more expensive, check whether you are solving a harder problem than the one you have — we had been treating the discharge location as unknown when AIS already tells us exactly where each candidate was.
+
+---
+
+### [P-05] Stokes drift would have been double-counted
+**2026-09-05** · design review · **Severity:** near-miss (major)
+
+**Symptom** — The transport equation was drafted as `currents + tides + Stokes + windage`, with each term added explicitly. Standard, and it appears in most drift-modelling write-ups.
+
+**Root cause** — We source currents from **CMEMS SMOC**, which *already merges* geostrophic currents, tides and Stokes drift into its `uo`/`vo` fields — that is precisely why CMEMS recommends it for Lagrangian applications. Adding a separate Stokes parameterisation on top would have counted a real physical term twice, biasing every trajectory downwind by a systematic amount, silently, with no error raised.
+
+**Fix** — `ForcingBundle.currents.includes_stokes` is now a required contract field, and the transport kernel reads it. A unit test asserts no Stokes term is added when it is `true`. The docstring of the windage function states it explicitly.
+
+**Lesson** — A bug that produces *plausible* wrong answers is far more dangerous than one that crashes. We would never have noticed this from the output. **Encode the assumption in the data contract, not in someone's memory** — that is the only fix that survives a tired teammate on Day 11.
+
+---
+
+### [P-06] SNAP and OpenDrift on Windows put the demo at risk
+**2026-09-05** · planning · **Severity:** blocker (avoided by scoping)
+
+**Symptom** — The reference stack requires ESA SNAP (Java, via `snappy`) for SAR preprocessing and OpenDrift (conda, GDAL) for drift. The team is on Windows 11. Both are well-documented sources of multi-day environment failure, and both sat on the critical path.
+
+**Root cause** — Adopting a research-grade stack wholesale without asking which parts the *prototype* actually needs.
+
+**Fix** — Removed both from the prototype. The Zenodo training data is already calibrated σ⁰ in dB, so SNAP is unnecessary until we ingest raw scenes (Round 3). OpenDrift was replaced with a ~150-line Lagrangian kernel — RK4 advection, sampled windage, random-walk diffusion — because **the differentiator is the inversion method, not the ODE solver.** The remaining stack installs with plain `pip` into a plain `venv`: no conda, no WSL2, no Docker, no Java.
+
+**Lesson** — Ask what a dependency actually buys *this* deliverable. OpenDrift buys weathering and citability; we need neither for Round 1, and we pay for both with the largest schedule risk in the project. Recorded as debt items D1 and D2 in [engineering_review.md](engineering_review.md), each with a one-class exit path.
+
+---
+
+### [P-07] A mission-status claim we cannot verify
+**2026-09-05** · M6 · **Severity:** minor (open)
+
+**Symptom** — Our source design document asserts that Sentinel-1A was terminated on 29 June 2026 and that Sentinel-1D has been open-access since 17 April 2026, and recommends saying "1C/1D" to signal currency.
+
+**Root cause** — Both claims post-date the knowledge available to us at drafting time and neither has been checked against ESA directly.
+
+**Fix** — ⬜ **Open.** M6 to verify against ESA mission documentation before this appears on any slide. Until verified, say "the current Sentinel-1 constellation" rather than naming satellites.
+
+**Lesson** — The advice was right — knowing current mission status signals you read the documentation — but it cuts both ways. Being confidently *wrong* about a satellite's status in front of NTRO is far worse than being unspecific. A detail included to demonstrate currency is exactly the detail that must be verified.
+
+---
+
+## Watch list — traps predicted but not yet hit
+
+Logged in advance so they are recognised in seconds rather than debugged for hours. Move an entry up into the log when it actually bites.
+
+| # | Predicted problem | Recognise it by | Pre-planned response |
+|---|---|---|---|
+| W-01 | Metre/degree confusion in the transport kernel | Trajectories look right near the equator, wrong at high latitude | Integrate in projected UTM metres, never degrees. Unit test: 1 m/s for 1 h = 3600 m |
+| W-02 | Meteorological "wind from" vs oceanographic "wind to" sign error | Slick drifts exactly the wrong way | Store `u10`/`v10` components only, never a bearing. Derive direction once, at the UI boundary |
+| W-03 | Deleting beached particles biases the posterior away from the coast | Coastal sources under-represented; posterior hugs open water | Mark `beached` and freeze. **Never delete.** Unit tested |
+| W-04 | AIS timestamps assumed local instead of UTC | Attribution off by a fixed whole number of hours | Assert UTC on load. A constant offset in the answer is the tell |
+| W-05 | Random tile split leaks between train and test | IoU suspiciously high, ~0.8+ | Geographic holdout only. If IoU exceeds 0.7, assume leakage before assuming success |
+| W-06 | Reporting overall pixel accuracy instead of oil-class IoU | A number near 0.99 | Never report overall accuracy. It measures "predicted all sea" |
+| W-07 | AIS gaps treated as evidence of concealment | Every vessel in a poorly-covered area looks suspicious | Baseline-relative gap prior. Gaps are overwhelmingly benign |
+| W-08 | Effective sample size collapses; posterior is Monte Carlo noise | A confident-looking blob that moves between runs with different seeds | Report ESS. If it collapses, **the UI must say so** |
+| W-09 | Interpolated AIS segments silently become evidence | A vessel scores well on a stretch where we invented its positions | Flag interpolated segments in the contract; exclude or downweight |
+| W-10 | The demo depends on a CDN | Works in dev, fails offline on Day 12 | Vendor deck.gl and MapLibre locally on Day 12 |
+| W-11 | Area computed in degrees | km² values wrong by a latitude-dependent factor | Equal-area or UTM projection. Unit tested against a known polygon |
+| W-12 | NetCDF reads inside the particle loop | Ensemble takes minutes instead of seconds | Preload forcing into one in-memory float32 array |
+| W-13 | Contract drift after Day 2 | Integration breaks on Day 8 in a way nobody can localise | Contracts frozen Day 2. Fixtures validated in tests |
+| W-14 | Synthetic AIS uses a real MMSI | A real vessel appears in our accusation demo | Generator restricted to reserved/invalid MMSI ranges. Unit tested |
+
+---
+
+## Build-phase log
+
+*Entries appended from Day 1 onwards.*
+
+> *(none yet — sprint begins 6 September 2026)*

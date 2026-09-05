@@ -1,0 +1,43 @@
+# Secrets
+.env
+*.key
+credentials.json
+
+# Data (never commit datasets - see Context/security_review.md)
+data/
+!data/.gitkeep
+*.nc
+*.tif
+*.tiff
+*.SAFE/
+*.zip
+
+# Model weights
+models/
+*.pt
+*.pth
+*.ckpt
+
+# Pipeline output
+out/
+eval/
+vendor/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Node (not used, but just in case)
+node_modules/
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/
