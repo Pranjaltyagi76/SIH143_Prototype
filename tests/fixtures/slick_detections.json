@@ -1,0 +1,170 @@
+[
+{
+  "detection_id": "kattegat_2024_03_11:d01",
+  "classification": "undetermined",
+  "classification_reason": "Wind 1.4 m/s is below the 3.0 m/s detectability threshold; at this wind speed the sea surface is already smooth and oil cannot produce radar contrast. Outside detectability window.",
+  "abstained": true,
+  "confidence_segmentation": 0.74,
+  "polygon_wgs84": [
+    [
+      10.86,
+      57.55
+    ],
+    [
+      11.04,
+      57.55
+    ],
+    [
+      11.04,
+      57.69
+    ],
+    [
+      10.86,
+      57.69
+    ],
+    [
+      10.86,
+      57.55
+    ]
+  ],
+  "geometry": {
+    "area_km2": 41.7,
+    "perimeter_km": 29.8,
+    "centroid": [
+      10.95,
+      57.62
+    ],
+    "elongation": 1.6,
+    "orientation_deg": 118.0,
+    "n_components": 1,
+    "complexity": 1.7,
+    "solidity": 0.88
+  },
+  "radiometry": {
+    "damping_ratio_db": -6.2,
+    "damping_norm_incidence": -5.9,
+    "sigma0_mean_db": -22.8,
+    "sigma0_background_db": -16.6,
+    "incidence_deg": 41.5
+  },
+  "environment": {
+    "wind_speed_ms": 1.4,
+    "wind_dir_deg": 192.0,
+    "wind_gradient_ms_per_km": 0.11
+  },
+  "release_mode": "indeterminate",
+  "release_mode_justification": "Not assessed; patch did not pass the detectability gate."
+},
+{
+  "detection_id": "kattegat_2024_03_11:d02",
+  "classification": "oil",
+  "classification_reason": "Wind 6.4 m/s is inside the detectability window; incidence-normalised damping -7.6 dB with sharp boundary gradient and elongation 7.3.",
+  "abstained": false,
+  "confidence_segmentation": 0.81,
+  "polygon_wgs84": [
+    [
+      11.299999999999999,
+      57.089999999999996
+    ],
+    [
+      11.58,
+      57.089999999999996
+    ],
+    [
+      11.58,
+      57.15
+    ],
+    [
+      11.299999999999999,
+      57.15
+    ],
+    [
+      11.299999999999999,
+      57.089999999999996
+    ]
+  ],
+  "geometry": {
+    "area_km2": 18.4,
+    "perimeter_km": 41.2,
+    "centroid": [
+      11.44,
+      57.12
+    ],
+    "elongation": 7.3,
+    "orientation_deg": 62.5,
+    "n_components": 2,
+    "complexity": 3.1,
+    "solidity": 0.62
+  },
+  "radiometry": {
+    "damping_ratio_db": -8.1,
+    "damping_norm_incidence": -7.6,
+    "sigma0_mean_db": -21.4,
+    "sigma0_background_db": -13.3,
+    "incidence_deg": 38.2
+  },
+  "environment": {
+    "wind_speed_ms": 6.4,
+    "wind_dir_deg": 245.0,
+    "wind_gradient_ms_per_km": 0.03
+  },
+  "release_mode": "continuous",
+  "release_mode_justification": "Elongation 7.3 with major axis 62.5 deg aligned within 8 deg of nearby track headings; consistent with continuous discharge under way, which constrains t0 to an interval rather than an instant."
+},
+{
+  "detection_id": "kattegat_2024_03_11:d03",
+  "classification": "look_alike",
+  "classification_reason": "Wind 7.1 m/s is inside the detectability window, but the boundary gradient is diffuse and shape is amorphous (solidity 0.94, elongation 1.2); consistent with a biogenic film rather than mineral oil.",
+  "abstained": false,
+  "confidence_segmentation": 0.66,
+  "polygon_wgs84": [
+    [
+      11.99,
+      56.68
+    ],
+    [
+      12.209999999999999,
+      56.68
+    ],
+    [
+      12.209999999999999,
+      56.88
+    ],
+    [
+      11.99,
+      56.88
+    ],
+    [
+      11.99,
+      56.68
+    ]
+  ],
+  "geometry": {
+    "area_km2": 63.2,
+    "perimeter_km": 33.4,
+    "centroid": [
+      12.1,
+      56.78
+    ],
+    "elongation": 1.2,
+    "orientation_deg": 15.0,
+    "n_components": 1,
+    "complexity": 1.4,
+    "solidity": 0.94
+  },
+  "radiometry": {
+    "damping_ratio_db": -4.3,
+    "damping_norm_incidence": -4.0,
+    "sigma0_mean_db": -19.9,
+    "sigma0_background_db": -15.6,
+    "incidence_deg": 35.8
+  },
+  "environment": {
+    "wind_speed_ms": 7.1,
+    "wind_dir_deg": 238.0,
+    "wind_gradient_ms_per_km": 0.02
+  },
+  "release_mode": "indeterminate",
+  "release_mode_justification": "Not applicable; classified as a look-alike."
+}
+]

@@ -227,8 +227,8 @@ Update at 22:00 daily. `⬜` not started · `🟡` in progress · `✅` done · 
 
 | Day | Date | Milestone | Status |
 |---|---|---|---|
-| 1 | Sun 6 Sep | Accounts, data, Krestenitis request sent | ⬜ |
-| 2 | Mon 7 Sep | 🔴 **Contracts frozen** | ⬜ |
+| 1 | Sun 6 Sep | Accounts, data, Krestenitis request sent | ⬜ **not started — external latency, do today** |
+| 2 | Mon 7 Sep | 🔴 **Contracts frozen** | ✅ **DONE (early, 6 Sep)** — see below |
 | 3 | Tue 8 Sep | 🔴 **GATE: Case #1 exists, kernel runs, epoch completes** | ⬜ |
 | 4 | Wed 9 Sep | Hypothesis grid; U-Net converging | ⬜ |
 | 5 | Thu 10 Sep | Observation operator; physics gate | ⬜ |
@@ -242,6 +242,20 @@ Update at 22:00 daily. `⬜` not started · `🟡` in progress · `✅` done · 
 | 13 | Fri 18 Sep | Video recorded | ⬜ |
 | 14 | Sat 19 Sep | Rehearsal, freeze, backups | ⬜ |
 | — | Sun 20 Sep | **SIH idea submission uploaded** | ⬜ |
+
+### Phase 0 completion note — 6 Sep 2026
+
+Delivered ahead of the Day 2 gate:
+
+- **Four contracts frozen** in `src/contracts/`, plus the `CaseManifest` spine. `extra="forbid"` on every model, so contract drift fails loudly at the boundary.
+- **Design decisions enforced in code, not convention** — `includes_stokes` is required with no default (P-05); the wind gate is a contract-level override the classifier cannot beat (FR-3a); `dark_vessel_hypothesis` is required with no default (SC-1); probabilities including the dark term must sum to 1; accusatory language is rejected at the field level (SC-2); lookback past 72 h must set `within_operating_envelope=False` (FR-10a).
+- **Reference fixtures** for all five artefacts in `tests/fixtures/`, covering all three classification outcomes including the 1.4 m/s abstention that is the demo's strongest beat. The frontend can now be built without the pipeline.
+- **`scripts/run_case.py`** with real stage ordering, skip/resume, `--force`, `--stage`, `--seed`, `--fixtures`, and the `out/log.jsonl` timing log. All five stages are honest stubs that report loudly.
+- **56 tests passing.** Every guard has a test that constructs the invalid input and asserts rejection.
+- **Environment resolved:** Python 3.13.14, all 20 dependencies including `torch 2.14.0+cu126`. No 3.11 needed, no conda, no Docker. Exact pins in `requirements.txt`.
+- **Three bugs logged** as P-08 / P-09 / P-10 in [problems_faced_and_bugs_encountered.md](problems_faced_and_bugs_encountered.md).
+
+Still outstanding from Day 1–2, all owned outside Phase 0: accounts and downloads (M3), the Krestenitis request (M1), CMEMS QUID Stokes confirmation (M2), and the deck.gl 1e5-point rendering budget check (M5).
 
 ---
 

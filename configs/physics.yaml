@@ -1,0 +1,107 @@
+# Physical constants and sampling distributions.
+#
+# Every physical constant in the project lives here with a source comment.
+# No magic numbers in code -- see Context/engineering_review.md section 1.
+#
+# Values marked ASSUMPTION are calibrated or asserted rather than measured.
+# They are reported as assumptions in SourcePosterior.assumptions and carried
+# to the UI. Sensitivity to them is reported, not hidden.
+
+detection:
+  # The physical wind-detectability window, 10 m wind in m/s.
+  # Below wind_min the sea surface is already smooth, so no oil-water contrast
+  # is possible and a dark patch is far more likely a low-wind artefact.
+  # Above wind_max wave action disperses and submerges the slick.
+  # This is a HARD GATE: it overrides the classifier (FR-3a).
+  wind_min_ms: 3.0
+  wind_max_ms: 12.0
+
+  # Segmentation boundary uncertainty, in pixels, at 10 m spacing. Pixels within
+  # this annulus of the mask edge are treated as unobserved rather than as
+  # negatives, so a hypothesis is not punished for a one-pixel disagreement.
+  boundary_uncertainty_px: 2.0
+
+  # Release-mode inference thresholds. See technical_design.md section 2.
+  continuous_min_elongation: 4.0
+  continuous_max_heading_offset_deg: 15.0
+  instantaneous_max_elongation: 2.5
+
+transport:
+  # Integration timestep. At O(1 m/s) currents this is ~900 m per step against
+  # a ~9 km CMEMS cell -- comfortably resolved.
+  timestep_minutes: 15
+
+  # Windage: the fraction of 10 m wind speed imparted to surface oil.
+  # Literature range is roughly 1-4%. SAMPLED PER PARTICLE, never fixed --
+  # treating it as a constant materially understates position uncertainty.
+  windage_alpha:
+    distribution: uniform
+    low: 0.01
+    high: 0.04
+
+  # Horizontal diffusivity, m^2/s. Order-of-magnitude uncertain, so log-uniform.
+  # SAMPLED PER PARTICLE.
+  diffusivity_kh:
+    distribution: loguniform
+    low: 1.0
+    high: 10.0
+
+  # Stokes drift is NOT configured here on purpose.
+  # CMEMS SMOC already merges it into uo/vo. The kernel reads
+  # ForcingBundle.currents.includes_stokes and adds nothing when it is true.
+  # Adding a separate parameterisation would double-count a real physical term
+  # and bias every trajectory downwind, silently.
+  # See problems_faced_and_bugs_encountered.md P-05.
+
+  # Particles that intersect land are marked beached and frozen, never deleted.
+  # Deleting them silently biases the posterior away from the coast, which is
+  # exactly where spills matter most (W-03).
+  beaching: freeze
+
+inversion:
+  # Maximum lookback. Beyond this the envelope grows super-linearly -- shear
+  # dispersion separates neighbouring particles roughly exponentially at short
+  # lags -- and stops being operationally useful. Reported as a system limit.
+  max_lookback_hours: 72.0
+  default_lookback_hours: 36.0
+
+  n_particles: 100000
+  n_hypotheses: 4096
+
+  # Coarse-to-fine refinement. Two rounds cost less than one fine blind pass.
+  refinement_rounds: 2
+  refinement_keep_fraction: 0.1
+
+  # ASSUMPTION. Detectability constant in the observation operator:
+  #   q(x) = 1 - exp(-lambda * rho(x))
+  # Calibrated once so that a physically plausible particle density maps to
+  # q ~ 0.9. Not derived from first principles. Debt item D4.
+  detectability_lambda: 2.5
+
+  # Below this ESS fraction the posterior is Monte Carlo noise and the UI must
+  # say so rather than draw a confident-looking blob (W-08).
+  min_ess_fraction: 0.01
+
+  credible_levels: [50, 95]
+
+attribution:
+  # Spatio-temporal prefilter margins around the posterior support.
+  prefilter_spatial_margin_km: 25.0
+  prefilter_temporal_margin_hours: 6.0
+
+  # ASSUMPTION. Prior probability that the source vessel was not transmitting
+  # AIS. Report sensitivity across this range rather than a single value.
+  # Debt item D5.
+  dark_vessel_prior: 0.15
+  dark_vessel_prior_sensitivity: [0.10, 0.20]
+
+  # AIS cleaning. Everything dropped is COUNTED and reported -- an undisclosed
+  # filter is a hidden assumption.
+  max_plausible_speed_kn: 40.0
+  track_split_gap_hours: 6.0
+
+  # The AIS-gap prior is baseline-relative, never absolute. Gaps are
+  # overwhelmingly common for benign reasons (shore receiver coverage), and an
+  # absolute threshold manufactures suspicion out of poor coverage (W-07).
+  gap_prior_mode: baseline_relative
+  gap_baseline_window_km: 50.0

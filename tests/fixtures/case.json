@@ -1,0 +1,28 @@
+{
+  "case_id": "kattegat_2024_03_11",
+  "description": "Kattegat, elongated track-aligned slick plus one low-wind look-alike.",
+  "region": "Kattegat / Skagerrak, Danish waters",
+  "aoi": {
+    "min_lon": 10.2,
+    "min_lat": 56.4,
+    "max_lon": 12.8,
+    "max_lat": 58.1
+  },
+  "t_obs": "2024-03-11T05:42:13Z",
+  "t_start": "2024-03-09T00:00:00Z",
+  "scene": {
+    "sigma0_path": "scene/sigma0_vv_db.tif",
+    "incidence_path": "scene/incidence.tif",
+    "platform": "Sentinel-1",
+    "polarisation": "VV",
+    "product_type": "GRD",
+    "pixel_spacing_m": 10.0
+  },
+  "seed": 20260906,
+  "ais_source": "danish_dma",
+  "ais_is_synthetic": false,
+  "notes": [
+    "Real AIS from the Danish Maritime Authority.",
+    "Primary validation region: free real AIS plus a resolved ocean model."
+  ]
+}

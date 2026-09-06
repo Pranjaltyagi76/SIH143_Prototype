@@ -19,9 +19,13 @@ models/
 *.ckpt
 
 # Pipeline output
+# NOTE: these patterns are anchored on purpose. Unanchored 'eval/' matches
+# src/eval/ (the evaluation harness) and unanchored 'vendor/' matches
+# web/vendor/, silently excluding real source from the repo.
 out/
-eval/
-vendor/
+/eval/
+web/vendor/*
+!web/vendor/.gitkeep
 
 # Python
 .venv/

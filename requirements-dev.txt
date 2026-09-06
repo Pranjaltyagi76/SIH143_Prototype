@@ -1,0 +1,8 @@
+# Development-only. Install after requirements.txt.
+-r requirements.txt
+
+pytest==9.1.1
+black==25.9.0
+ruff==0.14.4
+snakeviz==2.2.2
+jupyter==1.1.1

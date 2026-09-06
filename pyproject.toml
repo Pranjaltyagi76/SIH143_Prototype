@@ -1,0 +1,22 @@
+[project]
+name = "sih143-oilspill"
+version = "0.1.0"
+description = "Oil spill detection from SAR with AIS vessel attribution (SIH26143)"
+requires-python = ">=3.13"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]

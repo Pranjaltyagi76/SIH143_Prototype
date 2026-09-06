@@ -298,7 +298,8 @@ The contract that makes the demo possible. Nothing downstream is allowed to fetc
 | Geospatial | rasterio, shapely, geopandas, pyproj | Standard. All area computation in projected metres, never degrees |
 | AIS store | **Parquet + DuckDB** | No server. Columnar, fast over CSV. PostGIS only if we needed concurrency — we do not |
 | Backend | **FastAPI**, bound to `127.0.0.1` | Async, auto OpenAPI docs, trivial static serving |
-| Frontend | **Single HTML page + deck.gl from CDN + MapLibre GL** | No npm, no Vite, no build step, no `node_modules` on demo day. Identical GPU rendering to a React build |
+| Frontend | **Single HTML page + deck.gl from CDN** | No npm, no Vite, no build step, no `node_modules` on demo day. Identical GPU rendering to a React build |
+| Basemap | **Natural Earth coastlines as a deck.gl `GeoJsonLayer`** — no tile provider | Tile services (Mapbox, MapTiler, even OSM) need an API key, a network connection, or both. NFR-1 forbids network calls at demo time, so a tile basemap is impossible regardless of cost. Natural Earth is public domain, ~20 MB, downloaded once, and an ocean-focused app only needs land polygons on a dark sea. **Zero cost, zero API key, zero network** |
 | Packaging | `requirements.txt` with pinned versions; Docker optional | A venv on the demo laptop is the primary path. Docker is the backup, not the plan |
 
 ### Why deck.gl and not Leaflet

@@ -1,0 +1,34 @@
+{
+  "case_id": "kattegat_2024_03_11",
+  "aoi": {
+    "min_lon": 10.2,
+    "min_lat": 56.4,
+    "max_lon": 12.8,
+    "max_lat": 58.1
+  },
+  "t_start": "2024-03-09T00:00:00Z",
+  "t_obs": "2024-03-11T05:42:13Z",
+  "currents": {
+    "path": "forcing/currents.nc",
+    "product": "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i",
+    "vars": [
+      "uo",
+      "vo"
+    ],
+    "includes_tides": true,
+    "includes_stokes": true,
+    "resolution_deg": 0.0833,
+    "rms_error_ms": 0.12
+  },
+  "wind": {
+    "path": "forcing/wind.nc",
+    "product": "ERA5 single-levels, 10 m u/v",
+    "vars": [
+      "u10",
+      "v10"
+    ],
+    "resolution_deg": 0.25
+  },
+  "land_mask": "forcing/land.tif",
+  "crs_working": "EPSG:32632"
+}

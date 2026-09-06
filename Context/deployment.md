@@ -31,12 +31,57 @@ Every decision below follows from that. The system is a batch pipeline over immu
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Python | 3.11.x | 3.12 has occasional wheel gaps in the geospatial stack; 3.11 is the safe choice |
+| Python | 3.11.x preferred | 3.12+ has occasional wheel gaps in the geospatial stack. **See §2.2 — the dev machine currently has 3.14 and 3.13 only** |
 | NVIDIA GPU + CUDA | driver ≥ 535 | Training only. **Inference must also work on CPU** — the demo machine may not be the training machine |
 | Disk | ~40 GB | Zenodo dataset ~15 GB, forcing ~5 GB, AIS ~5 GB, cases ~5 GB, working room |
 | RAM | 16 GB min | Transport at 1e5 particles is comfortable; 1e6 is not |
 | Browser | Chrome / Edge, current | WebGL2 required by deck.gl |
 | OS | Windows 11 | **No WSL2, no Docker, no conda required** — this is the payoff of dropping SNAP and OpenDrift |
+
+### 2.1 Actual dev/demo machine (verified 2026-09-05)
+
+| Resource | Measured | Verdict |
+|---|---|---|
+| Disk free | 161 GB | ✅ Ample |
+| RAM | 15.3 GB | ✅ Meets target. Keep the ensemble at 1e5–4e5 particles, not 1e6 |
+| GPU | RTX 3050 Laptop, **4 GB VRAM**, driver 591.84 | ⚠️ **Tight.** See §2.3 |
+| Python | 3.14.6 (default), 3.13 | ⚠️ **Needs resolution.** See §2.2 |
+
+### 2.2 Python version — ✅ RESOLVED in Phase 0 (2026-09-06)
+
+The machine has Python 3.14 and 3.13; neither is the previously recommended 3.11, and PyTorch plus the geospatial wheels historically lag new CPython releases by months. Rather than assume, we resolved it empirically with a `pip install --dry-run` sweep of the full dependency set.
+
+**Result: Python 3.13.14 works for everything. Python 3.11 is not needed.**
+
+| Package | Resolved on 3.13 |
+|---|---|
+| torch (CUDA) | ✅ **2.14.0+cu126** — `--index-url https://download.pytorch.org/whl/cu126` |
+| torch (CPU, PyPI) | ✅ 2.14.0 |
+| segmentation_models_pytorch | ✅ 0.5.0 |
+| numpy / scipy / pandas | ✅ 2.5.2 / 1.18.1 / 3.0.5 |
+| xarray / netCDF4 | ✅ 2026.7.0 / 1.7.4 |
+| rasterio / shapely / pyproj / geopandas | ✅ 1.5.1 / 2.1.2 / 3.8.0 / 1.1.4 |
+| lightgbm / scikit-learn / scikit-image | ✅ 4.7.0 / 1.9.0 / 0.26.0 |
+| duckdb / fastapi / uvicorn | ✅ 1.5.5 / 0.141.1 / 0.52.4 |
+
+Note `cu121` has no 3.13 build; use **cu126**. Exact pins are in `requirements.txt`.
+
+The venv is created with `py -3.13 -m venv .venv`. Python 3.14 remains the system default and is not used by this project.
+
+### 2.3 The 4 GB VRAM constraint
+
+4 GB is enough for this project but not by much. Plan for it rather than discovering it mid-training:
+
+| Setting | Value | Why |
+|---|---|---|
+| Tile size | 256 x 256 | Already the plan |
+| Batch size | 8, falling back to 4 | A ResNet34 U-Net at 256² in fp32 with batch 16 will OOM at 4 GB |
+| **Mixed precision** | **`torch.amp` enabled** | Roughly halves activation memory. Effectively mandatory here, not an optimisation |
+| Gradient accumulation | 2–4 steps | Recovers an effective batch of 16–32 without the memory |
+| Encoder | ResNet34, **not** ResNet50+ | Another reason the architecture choice was right |
+| Inference | Also verified on CPU | The demo path must not depend on the GPU |
+
+This costs nothing and is well within reach. It does mean **U-Net training is the one phase that cannot be rushed** — expect a few hours per full run, so start it early and let it run overnight rather than blocking a work session on it.
 
 ### The Windows decision, recorded
 
@@ -126,7 +171,9 @@ uvicorn src.api.main:app --host 127.0.0.1 --port 8000
 
 **Bound to `127.0.0.1` deliberately, never `0.0.0.0`.** There is no authentication layer, so the API must not be reachable from a conference WiFi network. This is enforced in code, not left to a command-line flag someone might change.
 
-Serves `web/index.html` as static content plus a small JSON API over `out/`. deck.gl and MapLibre load from CDN in development — **and are vendored locally into `web/vendor/` on Day 12**, because a CDN is a network dependency and NFR-1 forbids one.
+Serves `web/index.html` as static content plus a small JSON API over `out/`. deck.gl loads from CDN in development — **and is vendored locally into `web/vendor/` on Day 12**, because a CDN is a network dependency and NFR-1 forbids one.
+
+**There is no tile basemap.** Land is drawn from Natural Earth 1:10m coastline polygons (public domain, ~20 MB, committed once to `web/assets/`) as a deck.gl `GeoJsonLayer` over a solid ocean fill. Every tile service — Mapbox, MapTiler, OSM — requires an API key, a network connection, or both, and NFR-1 rules all of them out regardless of price. This is not a compromise: an ocean application needs coastlines, not street-level raster tiles.
 
 | Endpoint | Returns |
 |---|---|

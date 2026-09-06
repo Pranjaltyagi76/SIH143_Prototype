@@ -1,0 +1,124 @@
+{
+  "case_id": "kattegat_2024_03_11",
+  "traffic_reduction": {
+    "vessels_in_window": 214,
+    "after_prefilter": 19,
+    "reported": 3
+  },
+  "candidates": [
+    {
+      "rank": 1,
+      "mmsi": "219000000",
+      "vessel_name": "REDACTED_IN_DEMO",
+      "vessel_type": "Tanker",
+      "posterior_probability": 0.41,
+      "log_likelihood": -142.6,
+      "best_discharge_window_utc": [
+        "2024-03-10T04:10:00Z",
+        "2024-03-10T07:35:00Z"
+      ],
+      "evidence": {
+        "track_overlap_likelihood": -142.6,
+        "ais_gap_factor": {
+          "value": 2.1,
+          "note": "3.2 h AIS gap against a 0.4 h local baseline gap rate"
+        },
+        "speed_anomaly_factor": {
+          "value": 1.6,
+          "note": "4.1 kn against a 12.3 kn transit median for this vessel"
+        },
+        "course_change_factor": {
+          "value": 1.0,
+          "note": "no significant course alteration"
+        },
+        "vessel_type_factor": {
+          "value": 1.4,
+          "note": "tanker prior"
+        },
+        "axis_alignment_factor": {
+          "value": 2.8,
+          "note": "slick major axis within 8 deg of vessel heading"
+        }
+      },
+      "track_geojson": {}
+    },
+    {
+      "rank": 2,
+      "mmsi": "219000001",
+      "vessel_name": "REDACTED_IN_DEMO",
+      "vessel_type": "Bulk Carrier",
+      "posterior_probability": 0.24,
+      "log_likelihood": -147.9,
+      "best_discharge_window_utc": [
+        "2024-03-10T06:00:00Z",
+        "2024-03-10T09:20:00Z"
+      ],
+      "evidence": {
+        "track_overlap_likelihood": -147.9,
+        "ais_gap_factor": {
+          "value": 1.0,
+          "note": "no AIS gap in the posterior time window"
+        },
+        "speed_anomaly_factor": {
+          "value": 1.3,
+          "note": "9.8 kn against an 11.9 kn transit median"
+        },
+        "course_change_factor": {
+          "value": 1.2,
+          "note": "moderate course alteration near the posterior region"
+        },
+        "vessel_type_factor": {
+          "value": 1.2,
+          "note": "bulk carrier prior"
+        },
+        "axis_alignment_factor": {
+          "value": 1.5,
+          "note": "slick major axis within 27 deg of vessel heading"
+        }
+      },
+      "track_geojson": {}
+    },
+    {
+      "rank": 3,
+      "mmsi": "219000002",
+      "vessel_name": "REDACTED_IN_DEMO",
+      "vessel_type": "Cargo",
+      "posterior_probability": 0.13,
+      "log_likelihood": -153.2,
+      "best_discharge_window_utc": [
+        "2024-03-10T09:45:00Z",
+        "2024-03-10T12:05:00Z"
+      ],
+      "evidence": {
+        "track_overlap_likelihood": -153.2,
+        "ais_gap_factor": {
+          "value": 1.4,
+          "note": "1.1 h AIS gap against a 0.4 h local baseline gap rate"
+        },
+        "speed_anomaly_factor": {
+          "value": 1.0,
+          "note": "no speed anomaly"
+        },
+        "course_change_factor": {
+          "value": 1.0,
+          "note": "no significant course alteration"
+        },
+        "vessel_type_factor": {
+          "value": 1.0,
+          "note": "general cargo, neutral prior"
+        },
+        "axis_alignment_factor": {
+          "value": 1.1,
+          "note": "slick major axis within 44 deg of vessel heading"
+        }
+      },
+      "track_geojson": {}
+    }
+  ],
+  "dark_vessel_hypothesis": {
+    "posterior_probability": 0.22,
+    "prior_used": 0.15,
+    "note": "Posterior mass not explained by any AIS-observed track. The source may have been a vessel not transmitting AIS; this hypothesis competes on equal terms with the named candidates."
+  },
+  "disclaimer": "Investigative leads under stated model assumptions. Not a determination of responsibility."
+}

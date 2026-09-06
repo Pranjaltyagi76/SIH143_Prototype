@@ -1,0 +1,59 @@
+# Runtime dependencies. EXACT PINS ONLY -- no >= anywhere.
+# An unpinned transitive dependency that moves on Day 13 is an avoidable
+# self-inflicted outage. See Context/deployment.md section 3.
+#
+# Verified installable on Python 3.13.14 / Windows 11, 2026-09-06.
+# Every wheel here is prebuilt on PyPI: no conda, no WSL2, no Docker, no Java.
+# That is the payoff of dropping SNAP and OpenDrift (debt items D1 and D2).
+#
+#   python -3.13 -m venv .venv
+#   .venv\Scripts\activate
+#   pip install -r requirements.txt
+
+# --- contracts and config ----------------------------------------------------
+pydantic==2.13.5
+PyYAML==6.0.3
+python-dotenv==1.2.3
+
+# --- numerics and arrays -----------------------------------------------------
+numpy==2.5.2
+scipy==1.18.1
+pandas==3.0.5
+
+# --- gridded forcing (CMEMS currents, ERA5 wind) -----------------------------
+xarray==2026.7.0
+netCDF4==1.7.4
+
+# --- geospatial --------------------------------------------------------------
+# All computation happens in projected metres via pyproj, never in degrees.
+rasterio==1.5.1
+shapely==2.1.2
+pyproj==3.8.0
+geopandas==1.1.4
+
+# --- AIS store ---------------------------------------------------------------
+# Columnar, no server. PostGIS only if we needed concurrency -- we do not.
+duckdb==1.5.5
+
+# --- machine learning --------------------------------------------------------
+# torch is NOT pinned here: install it first from the CUDA index, because PyPI
+# ships a CPU-only build on Windows.
+#
+#   pip install torch==2.14.0 torchvision --index-url https://download.pytorch.org/whl/cu126
+#
+# 4 GB VRAM (RTX 3050 Laptop) requires torch.amp mixed precision and batch 8.
+# See Context/deployment.md section 2.3.
+segmentation_models_pytorch==0.5.0
+lightgbm==4.7.0
+scikit-learn==1.9.0
+scikit-image==0.26.0
+
+# --- API ---------------------------------------------------------------------
+# Bound to 127.0.0.1 only. There is no auth layer, so it must never be
+# reachable from a conference network. See Context/security_review.md.
+fastapi==0.141.1
+uvicorn==0.52.4
+
+# --- misc --------------------------------------------------------------------
+tqdm==4.70.0
+matplotlib==3.11.1

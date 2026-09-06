@@ -145,6 +145,54 @@ Logged in advance so they are recognised in seconds rather than debugged for hou
 
 ## Build-phase log
 
-*Entries appended from Day 1 onwards.*
+### [P-08] Two-argument lambda validators silently receive the wrong arguments
+**2026-09-06** · Phase 0 · **Severity:** major (caught before it shipped)
 
-> *(none yet — sprint begins 6 September 2026)*
+**Symptom** — Two Pydantic field validators for list-valued UTC datetime fields were written compactly as `field_validator("t0")(lambda cls, v: [require_utc(t) for t in v])`, mirroring the `(cls, value)` signature of the decorated classmethods elsewhere in the file.
+
+**Root cause** — Pydantic v2 inspects the arity of a plain (non-classmethod) validator function. A two-argument function is interpreted as `(value, info)`, **not** `(cls, value)`. So `cls` would have been bound to the list of datetimes and `v` to a `ValidationInfo` object — meaning the loop would have iterated the wrong thing and the UTC check would never have run as intended on `PosteriorGrid.t0` or `TimeMarginal.bins_utc`.
+
+**Fix** — Reduced both to single-argument lambdas, which Pydantic treats unambiguously as `(value)`. Added `test_posterior_list_datetimes_are_utc_checked`, which feeds a naive datetime into `grid.t0` and asserts the rejection.
+
+**Lesson** — A validator that silently does nothing is worse than no validator, because it buys false confidence — and this one guarded W-04, the timezone error that shifts every attribution by a constant number of hours. **Every guard needs a test that proves it fires.** All 45 contract tests in Phase 0 are written that way: each one deliberately constructs the invalid input and asserts the rejection.
+
+---
+
+### [P-09] Python 3.14 was the system default; the stack needed a decision
+**2026-09-06** · Phase 0 · **Severity:** minor (resolved)
+
+**Symptom** — The dev machine had Python 3.14.6 as default and 3.13 available, but not the 3.11 our deployment plan recommended. PyTorch and the geospatial wheels historically lag new CPython releases.
+
+**Root cause** — The 3.11 recommendation was written from general caution, not from a check against this machine.
+
+**Fix** — Resolved empirically instead of by assumption: a `pip install --dry-run` sweep over the entire dependency set on 3.13 resolved **all 20 packages**, including `torch 2.14.0+cu126`. No 3.11 install needed. Exact versions pinned into `requirements.txt`; `deployment.md` §2.2 updated with the evidence table. Note `cu121` has no 3.13 build — use **cu126**.
+
+**Lesson** — Thirty minutes of empirical checking beat a plausible assumption in both directions here. Had we followed the doc blindly we would have installed a redundant Python; had we assumed 3.14 was fine we would have hit a wall later. **Check the actual machine before trusting a general recommendation.**
+
+---
+
+### [P-11] Unanchored .gitignore patterns silently excluded real source
+**2026-09-06** · Phase 0 · **Severity:** major (caught at first commit)
+
+**Symptom** — After creating the module skeleton, `git status` listed `src/api/`, `src/detect/`, `src/transport/` and the rest, but **`src/eval/` was missing entirely** — no error, no warning.
+
+**Root cause** — The `.gitignore` contained bare `eval/` and `vendor/`, intended for the root-level evaluation output directory and the vendored CDN assets. Gitignore patterns without a leading slash match a directory of that name **at any depth**, so `eval/` also matched `src/eval/` — the evaluation harness that produces the calibration curve and top-K metrics — and `vendor/` matched `web/vendor/`.
+
+**Fix** — Anchored both: `/eval/` for the root output directory, and `web/vendor/*` with a `!web/vendor/.gitkeep` exception. Verified with `git check-ignore -v`.
+
+**Lesson** — This would have been genuinely expensive. `src/eval/` is M4's deliverable and the source of every number on three slides; it would have been written, worked locally, and simply never appeared for anyone who cloned — with no error at any point. **Read `git status` against the directory listing you expect, at least once, on the first real commit.** An unanchored gitignore pattern is a silent data-loss bug, and `git check-ignore -v <path>` names the exact line responsible.
+
+---
+
+### [P-10] UTM zone arithmetic in a test, not in the code
+**2026-09-06** · Phase 0 · **Severity:** minor
+
+**Symptom** — Two parametrised tests of `BoundingBox.utm_epsg()` failed: 69°E returned zone 42 where the test expected 43, and −90° returned zone 16 where the test expected 15.
+
+**Root cause** — The test expectations were wrong, not the implementation. Zone 42 spans 66–72°E, so 69°E is zone 42. And −90° sits exactly on the 15/16 boundary, where the convention assigns the higher zone.
+
+**Fix** — Corrected the expectations and moved the Gulf of Mexico case to −92° so it no longer sits on a zone boundary at all.
+
+**Lesson** — Worth logging because it is the *reassuring* kind of failure: the guard against computing areas in degrees (W-11) fired on the first run and caught a disagreement, which is exactly what it is for. Also a reminder to avoid boundary values in test data unless the boundary itself is what you are testing.
+
+---
