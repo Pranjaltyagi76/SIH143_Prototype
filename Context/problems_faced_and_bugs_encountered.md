@@ -171,6 +171,25 @@ Logged in advance so they are recognised in seconds rather than debugged for hou
 
 ---
 
+### [P-18] A timestamp-resolution error silently deleted 99.6% of the AIS
+**2026-09-06** · Phase 4 · **Severity:** critical
+
+**Symptom** — The first attribution run printed a cleaning report showing `dropped_speed_jump: 43130` out of `rows_in: 43309`. The speed filter had discarded **99.6% of every AIS fix in the case**, leaving 179 rows from 179 vessels. Nothing raised. Nothing warned. The report looked like an ordinary summary of a cleaning step.
+
+**Root cause** — Epoch seconds were computed as `df["timestamp"].astype("int64") / 1e9`, the standard pandas idiom. But pandas 3.0 reads this parquet column as `datetime64[us]`, not `[ns]`, so `astype("int64")` yields **microseconds**. Dividing by 1e9 gave seconds ÷ 1000. Every `dt` between consecutive fixes was 1000× too small, every implied speed 1000× too large, and a 12-knot cargo ship looked like it was doing 12,000 knots.
+
+**Fix** — Replaced with a resolution-independent conversion, `(ts - pd.Timestamp(0, tz="UTC")).dt.total_seconds()`. Then added a guard: `clean_and_reconstruct` now **refuses** to return a dataset whose speed filter dropped more than half the fixes, because that is a unit error rather than dirty data. A test reproduces the gutting and asserts the refusal.
+
+**Lesson** — Three things.
+
+*The failure mode was a silent success.* No exception, no NaN, no obviously wrong number — just a filter doing exactly what it was told with corrupted inputs. Had the cleaning report not been printed during a smoke test, attribution would have run on 0.4% of the traffic and produced a confident, plausible, meaningless ranking.
+
+*The idiom was correct until the library changed underneath it.* `astype("int64") / 1e9` is what everyone writes, and it was right for pandas 2.x defaults. **Never encode a unit assumption you have not verified against the actual dtype.**
+
+*Sanity-check the magnitude of what a filter removes.* Dropping 99.6% of anything should be impossible to ship quietly. That guard now lives in the code, not in someone's memory.
+
+---
+
 ### [P-17] The posterior was overconfident by treating mask cells as independent
 **2026-09-06** · Phase 3 · **Severity:** critical (caught by measurement, not by inspection)
 

@@ -59,6 +59,36 @@ class ObservedMask:
         return self.n_mask_cells * self.dx * self.dy / 1e6
 
     @property
+    def major_axis_deg(self) -> float:
+        """Orientation of the slick's long axis, degrees clockwise from north.
+
+        Computed by principal component analysis of the mask cells. A continuous
+        discharge from a vessel under way leaves a slick *along* the track, so
+        the angle between this axis and a candidate's heading is a physically
+        motivated attribution signal rather than an invented one.
+        """
+        iy, ix = np.nonzero(self.mask)
+        px = ix * self.dx
+        py = iy * self.dy
+        cov = np.cov(np.vstack([px - px.mean(), py - py.mean()]))
+        if not np.all(np.isfinite(cov)) or cov.shape != (2, 2):
+            return 0.0
+        _, vectors = np.linalg.eigh(cov)
+        ex, ey = vectors[:, -1]  # eigenvector of the largest eigenvalue
+        return float(np.rad2deg(np.arctan2(ex, ey)) % 180.0)
+
+    @property
+    def elongation(self) -> float:
+        """Ratio of the principal axes. Above ~4 suggests a continuous discharge."""
+        iy, ix = np.nonzero(self.mask)
+        if iy.size < 3:
+            return 1.0
+        cov = np.cov(np.vstack([ix * self.dx, iy * self.dy]))
+        values = np.linalg.eigvalsh(cov)
+        values = np.clip(values, 1e-9, None)
+        return float(np.sqrt(values[-1] / values[0]))
+
+    @property
     def centroid_xy(self) -> tuple[float, float]:
         iy, ix = np.nonzero(self.mask)
         return (

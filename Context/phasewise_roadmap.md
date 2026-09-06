@@ -310,3 +310,47 @@ Still outstanding from Day 1–2, all owned outside Phase 0: accounts and downlo
 ## 10. Round 3 outline (post-selection, → December)
 
 Not scheduled here, but recorded so Round 2 can point at it: SNAP raw-scene ingest · OpenOil weathering · adaptive SMC inversion at 1e6 particles · repeat-offender aggregation across spills · GDP drifter validation · multi-scene temporal linking · external review by an oceanographer · regional then EEZ-scale coverage.
+
+### Phase 3 completion note — 6 Sep 2026
+
+**The inversion works and, more importantly, its uncertainty was measured rather than asserted.**
+
+Backward proposal → hypothesis grid → forward ensemble → Bernoulli conditioning → posterior. Runs in **1.7 s**. The closed-form likelihood is verified against a literal cell-by-cell evaluation, because if that algebra were wrong every number the system produces would be wrong and nothing else would reveal it.
+
+The headline finding is P-17. The first working inversion produced a 95% credible region of 306 km² with correct code, correct algebra and good runtime — and measuring coverage showed that region contained the truth **7% of the time**. Tempering the likelihood for spatial correlation between mask cells fixed it:
+
+| Decorrelation length | 95% coverage | t0 coverage | median 95% area |
+|---|---|---|---|
+| none (cells independent) | **7%** | 0% | 180 km² |
+| 2 km | 43% | 29% | 284 km² |
+| 5 km | 100% | 93% | 563 km² |
+| **9 km (forcing resolution, default)** | **100%** | 93% | 630 km² |
+
+This is exactly why calibration rather than accuracy is the headline metric — accuracy would have looked excellent.
+
+**Known deficiency, reported not tuned away:** the 50% region does not contain the truth at anything like 50%. The forcing-error perturbation term is not implemented, so the ensemble treats the ocean model as perfect. Phase 7.
+
+**141 tests passing** (28 new). Findings: P-16 (a convex hull is not a slick), P-17 (overconfidence).
+
+Reusable tool: `scripts/calibrate_inversion.py --n 20 --sweep`.
+
+### Phase 4 completion note — 6 Sep 2026
+
+**Attribution runs, and the true culprit was recovered from realistic traffic.**
+
+Seeding a discharge along a real vessel's AIS track, then asking the system to find it:
+
+| | |
+|---|---|
+| Traffic reduction | **179 vessels → 61 prefiltered → 3 reported** (60×) |
+| True culprit rank | **1 of 61** |
+| Dark-vessel hypothesis | 41.3% |
+| Runtime | 0.8 s — 930 hypotheses, 55,800 particles, **one forward run** |
+
+Every candidate, every release window and the dark hypothesis share a single simulation, distinguished by `origin_marker`. Each vessel's AIS track is used as a generative line source and scored by the *same* observation operator as the inversion, so the numbers are comparable on one scale with no invented weights.
+
+The dark hypothesis at 41% against a top candidate at 8.6% is the honest answer for a 576 km² region containing 61 vessels: no single ship dominates, and the system says so rather than manufacturing a name.
+
+Behavioural priors are five interpretable factors, each individually visible with a plain-language note. The AIS-gap factor is measured against the local baseline gap rate — in a poorly covered area an absolute threshold would flag every vessel present.
+
+**173 tests passing** (32 new). One critical finding: **P-18**, a timestamp-resolution error that silently discarded 99.6% of the AIS while reporting success.
