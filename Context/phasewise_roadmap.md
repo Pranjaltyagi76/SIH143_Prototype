@@ -257,6 +257,29 @@ Delivered ahead of the Day 2 gate:
 
 Still outstanding from Day 1–2, all owned outside Phase 0: accounts and downloads (M3), the Krestenitis request (M1), CMEMS QUID Stokes confirmation (M2), and the deck.gl 1e5-point rendering budget check (M5).
 
+### Phase 1 completion note — 6 Sep 2026
+
+**Two complete synthetic cases exist on disk and validate against every contract.** Phases 2–4 are now unblocked with zero downloads.
+
+- **`src/ingest/synthetic_forcing.py`** — analytic currents (sheared background + Gaussian eddy from a streamfunction + rotary M2 tide) and 10 m wind, written as CF-style NetCDF at CMEMS 1/12° and ERA5 0.25° spacing. Every term is there because the inversion needs it: shear so particles separate, an eddy so trajectories curve, and time-dependence so **t0 is identifiable at all** — in a steady flow the time marginal is flat no matter how good the inversion is.
+- **`src/ingest/synthetic_scene.py`** — sigma-0 VV in dB from a CMOD-like wind proxy with multiplicative Gamma speckle, plus an incidence ramp. **The low-wind pocket produces a genuine dark patch in the scene** (−6.7 dB against surrounding water) rather than a painted-on one, so the detector has something honest to be fooled by.
+- **`src/ingest/synthetic_ais.py`** — ~180 vessels, 43k–60k messages, lane-clustered, with a tight reporting baseline plus a benign minority carrying gaps, and loiterers for the speed-anomaly factor. Every MMSI is provably outside the real ship-station MID range (W-14).
+- **`src/ingest/case_builder.py`** + `scripts/build_synthetic_case.py` — assembles the full Case folder in the exact layout Phase 8 will produce.
+
+**Measured properties of the synthetic world:**
+
+| Property | Value | Why it matters |
+|---|---|---|
+| Mean current speed | 0.19 m/s | ~25 km of drift over 36 h — a realistic shelf-sea regime |
+| Wind, domain minimum | 1.61 m/s | Below the 3 m/s gate, so abstention is demonstrable |
+| Domain below 3 m/s | **5.1%** | Lands inside the 5–15% target abstention band, unforced |
+| Calm-pocket contrast | −6.7 dB | A convincing look-alike |
+| AIS vessels / messages | 179 / 43,309 | Dense enough that the prefilter must earn its reduction factor |
+| MMSI collisions with real range | **0** | Verified by test |
+| Case size on disk | 11–18 MB | Fully offline, committable-adjacent |
+
+**84 tests passing** (28 new). Two bugs logged: P-12 (xarray rejects tz-aware datetimes) and P-13 (the calm pocket was under-resolved by the ERA5-spaced grid — kept as a real effect rather than hidden).
+
 ---
 
 ## 10. Round 3 outline (post-selection, → December)

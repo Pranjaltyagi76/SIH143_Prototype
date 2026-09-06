@@ -171,6 +171,32 @@ Logged in advance so they are recognised in seconds rather than debugged for hou
 
 ---
 
+### [P-13] The calm pocket was too small for the wind grid to resolve
+**2026-09-06** · Phase 1 · **Severity:** minor (found by inspection, not by a test)
+
+**Symptom** — The synthetic wind field was configured with a calm pocket bottoming out at 1.3 m/s, comfortably below the 3 m/s detectability threshold. But sampling the written `wind.nc` gave a **minimum of 2.0 m/s**, and only 1.7% of the domain fell below the gate threshold.
+
+**Root cause** — The pocket had a 22 km radius, and the wind grid is written at the ERA5 spacing of 0.25° — about 28 km in latitude at 57°N. The pocket fell between grid points, so the coarse field never sampled its floor.
+
+**Fix** — Widened the pocket to 35 km. Sampled minimum is now 1.61 m/s and 5.1% of the domain sits below the gate, which lands inside our 5–15% target abstention band.
+
+**Lesson** — Worth keeping rather than "fixing away", because **it is a real effect, not an artefact**: coarse reanalysis genuinely under-resolves small calm patches, and that is one of the reasons look-alike rejection is hard in practice. The physics gate will read 0.25° ERA5 while the SAR scene shows 10 m structure, and that mismatch is a real limitation of the method. We kept the effect and gave the gate a clear signal, rather than pretending the resolution mismatch does not exist. Also a reminder that **the useful check is on the written artefact, not the config value** — the config said 1.3 and the file said 2.0.
+
+---
+
+### [P-12] xarray cannot serialise timezone-aware datetimes
+**2026-09-06** · Phase 1 · **Severity:** minor
+
+**Symptom** — `Dataset.to_netcdf()` failed with `unable to infer dtype on variable 'time'` when the time coordinate was built from timezone-aware `datetime` objects.
+
+**Root cause** — NetCDF and CF have no timezone concept; time is stored numerically against a reference epoch. xarray therefore refuses tz-aware Python datetimes rather than silently dropping the offset.
+
+**Fix** — Added `as_naive_utc()`, which converts to UTC and then strips the tzinfo before writing. No information is lost because everything in the project is UTC, enforced at the contract boundary by `require_utc`.
+
+**Lesson** — The important half is the **read** side, not the write side. Because the file now stores naive timestamps, any reader that forgets to re-attach UTC has silently created watch-list item W-04 — the timezone error that shifts every attribution by a constant number of hours. The conversion helper carries that warning in its docstring, and `test_ais_timestamps_are_utc_aware` guards the AIS path.
+
+---
+
 ### [P-11] Unanchored .gitignore patterns silently excluded real source
 **2026-09-06** · Phase 0 · **Severity:** major (caught at first commit)
 

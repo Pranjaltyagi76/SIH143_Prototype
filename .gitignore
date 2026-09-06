@@ -4,7 +4,9 @@
 credentials.json
 
 # Data (never commit datasets - see Context/security_review.md)
-data/
+# 'data/*' not 'data/' -- git cannot re-include a file whose parent DIRECTORY
+# is excluded, so 'data/' plus '!data/.gitkeep' silently keeps nothing.
+data/*
 !data/.gitkeep
 *.nc
 *.tif
