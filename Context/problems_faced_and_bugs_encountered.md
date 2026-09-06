@@ -171,6 +171,46 @@ Logged in advance so they are recognised in seconds rather than debugged for hou
 
 ---
 
+### [P-15] A "64x shear growth" figure that was actually windage variance
+**2026-09-06** · Phase 2 · **Severity:** major (a wrong claim, caught before it reached a slide)
+
+**Symptom** — A first diagnostic of the synthetic ocean reported that a 200 m particle cloud grew **64x over 48 hours**, which we took as evidence that shear dispersion was well represented. It is the kind of number that would have gone onto a slide.
+
+**Root cause** — The diagnostic ran with `TransportParams(diffusion_enabled=False)`, which switches off diffusion but leaves **windage enabled with alpha sampled per particle**. Windage spans 1–4% of a ~6 m/s wind, so different particles drift at velocities differing by ~0.09 m/s; over 48 hours that alone is ~15 km of spread. The measurement was dominated by parameter variance, not by the flow.
+
+Re-measuring with windage *and* diffusion off gave the truth: **1.06–1.32x**, an effective strain of ~1.5×10⁻⁶ s⁻¹ — the very bottom of the realistic range. The synthetic ocean barely sheared at all.
+
+**Fix** — Two parts. First, honesty: the earlier number was withdrawn. Second, physics: added a narrow zonal jet, since fronts and jets are where sub-mesoscale separation actually happens. Re-measured separation is now **2.1–3.1x over 48 h** (~6.5×10⁻⁶ s⁻¹), which is realistic for a shelf sea. The code comment states the measured figure, not the hoped-for one.
+
+**Lesson** — Two of them, and the second is the important one.
+
+*Attribute an effect before believing it.* "Cloud grew 64x, therefore our shear is realistic" conflated four mechanisms into one number. The way to test a mechanism is to switch off everything else.
+
+*A synthetic world that flatters the system is worse than no synthetic world.* Had this stood, every inversion metric through Phase 7 would have been computed against an ocean whose uncertainty came almost entirely from a parameter we control, and we would have discovered it at Phase 8 with real data and no time left.
+
+---
+
+### [P-14] The kernel is reversible -- but only with parameters held fixed
+**2026-09-06** · Phase 2 · **Severity:** major (design consequence, not a code bug)
+
+**Symptom** — The reversibility check failed badly: forward 24 h then backward 24 h with advection only left particles **5.1 km** from their origin, median. The claim that advection is time-reversible is the justification for the entire backward proposal pass, so this looked serious.
+
+**Root cause** — Not the integrator. `alpha` (windage) is sampled per particle from U(0.01, 0.04) at the start of each run, so the forward run and the backward run used **different windage for the same particle**. Two draws differ by ~0.09 m/s against a 6 m/s wind, and over 24 hours that is ~7.8 km.
+
+Isolating it confirmed the kernel is sound:
+
+| Configuration | Median round-trip error over 24 h |
+|---|---|
+| Windage off | **0.0 m** |
+| Windage fixed at 0.025 | **13 m** |
+| Windage sampled U(0.01, 0.04) | **5,132 m** |
+
+**Fix** — Added `TransportParams.proposal()`, which returns diffusion-off *and* windage-fixed-at-the-mean. The backward proposal pass exists to narrow the search region; sampling windage there would widen it by kilometres of displacement that looks like physical uncertainty and is not. Making the correct configuration a named factory means the inversion cannot get it wrong by omission.
+
+**Lesson** — "Advection is reversible" is true of the *equation* and only conditionally true of an *implementation*: it holds when every per-particle parameter is held fixed across the two runs. That distinction is not in any of the design documents, and it would have quietly widened every proposal region we ever generated. Also worth noting that the 13 m residual with fixed windage is itself explainable — wind is evaluated once per step at the step-start position, which differs between directions — rather than being unexplained slop.
+
+---
+
 ### [P-13] The calm pocket was too small for the wind grid to resolve
 **2026-09-06** · Phase 1 · **Severity:** minor (found by inspection, not by a test)
 

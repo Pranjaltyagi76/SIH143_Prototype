@@ -7,11 +7,14 @@ behind the same ``ForcingBundle`` contract and the same file layout.
 
 The fields are not arbitrary. Each term exists because the inversion needs it:
 
-``shear``
-    A meridional gradient in the background current. Two particles a few hundred
-    metres apart end up in slightly different velocity cells and separate. This
-    is the mechanism that makes backward uncertainty grow super-linearly, and
-    without it the synthetic ocean would flatter the inversion.
+``shear`` and ``jet``
+    A meridional gradient in the background flow, plus a narrow zonal jet whose
+    flanks carry strong lateral shear. Two particles a few hundred metres apart
+    end up in slightly different velocity cells and separate -- measured at
+    2.1-3.1x over 48 h. This is the mechanism that makes backward uncertainty
+    grow super-linearly, and without it the synthetic ocean would flatter the
+    inversion. The large-scale shear alone gave only 1.1-1.3x, which is why the
+    jet is there.
 
 ``eddy``
     A Gaussian vortex, so trajectories curve and backward advection is not a
@@ -65,6 +68,21 @@ class OceanConfig:
     eddy_offset_lat_frac: float = 0.55
     eddy_radius_km: float = 28.0
     eddy_strength_ms: float = 0.22
+
+    # A narrow zonal jet. Measured on the first build, the eddy plus large-scale
+    # shear alone separated a 250 m particle cloud by only 1.1-1.3x over 48 h --
+    # an effective strain rate of ~1.5e-6 /s, at the very bottom of the
+    # realistic range. Fronts and jets are where sub-mesoscale separation
+    # actually happens, and this is the term that makes the design's claim about
+    # shear dispersion demonstrable rather than asserted.
+    #
+    # Measured after adding it: 2.1-3.1x separation over 48 h depending on
+    # where the cloud starts, an effective strain of ~6.5e-6 /s. Realistic for
+    # a shelf sea, and enough that shear dispersion is demonstrable rather than
+    # asserted. u depends on y only, so the jet is divergence-free.
+    jet_lat_frac: float = 0.45
+    jet_width_km: float = 18.0
+    jet_speed_ms: float = 0.35
 
     tide_amplitude_ms: float = 0.18
     tide_period_hours: float = M2_PERIOD_HOURS
@@ -225,13 +243,20 @@ def current_field(
     u_eddy = -cfg.eddy_strength_ms * (ey_km / r) * decay
     v_eddy = cfg.eddy_strength_ms * (ex_km / r) * decay
 
+    # Zonal jet: u is a function of y alone, so it adds no divergence. Strong
+    # lateral shear on its flanks is what produces realistic particle
+    # separation over a day or two.
+    jet_lat = aoi.min_lat + cfg.jet_lat_frac * (aoi.max_lat - aoi.min_lat)
+    _, jy_km = km_offsets(lon2d, lat2d, aoi.centroid[0], jet_lat)
+    u_jet = cfg.jet_speed_ms * np.exp(-((jy_km / cfg.jet_width_km) ** 2))
+
     # Rotary tide: spatially uniform, purely time-dependent. This is what makes
     # the release time recoverable.
     omega = 2.0 * np.pi / cfg.tide_period_hours
     u_tide = cfg.tide_amplitude_ms * np.cos(omega * hours)
     v_tide = cfg.tide_amplitude_ms * cfg.tide_ellipticity * np.sin(omega * hours)
 
-    steady_u = (u_bg + u_eddy)[None, :, :]
+    steady_u = (u_bg + u_eddy + u_jet)[None, :, :]
     steady_v = (v_bg + v_eddy)[None, :, :]
     return (
         (steady_u + u_tide[:, None, None]).astype("float32"),

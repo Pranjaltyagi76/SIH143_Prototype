@@ -270,7 +270,7 @@ Still outstanding from Day 1–2, all owned outside Phase 0: accounts and downlo
 
 | Property | Value | Why it matters |
 |---|---|---|
-| Mean current speed | 0.19 m/s | ~25 km of drift over 36 h — a realistic shelf-sea regime |
+| Mean current speed | 0.23 m/s | ~30 km of drift over 36 h — a realistic shelf-sea regime |
 | Wind, domain minimum | 1.61 m/s | Below the 3 m/s gate, so abstention is demonstrable |
 | Domain below 3 m/s | **5.1%** | Lands inside the 5–15% target abstention band, unforced |
 | Calm-pocket contrast | −6.7 dB | A convincing look-alike |
@@ -279,6 +279,31 @@ Still outstanding from Day 1–2, all owned outside Phase 0: accounts and downlo
 | Case size on disk | 11–18 MB | Fully offline, committable-adjacent |
 
 **84 tests passing** (28 new). Two bugs logged: P-12 (xarray rejects tz-aware datetimes) and P-13 (the calm pocket was under-resolved by the ERA5-spaced grid — kept as a real effect rather than hidden).
+
+> Amended during Phase 2: a zonal jet was added to the ocean config after measurement showed the original field sheared far too weakly (P-15). Mean current rose from 0.19 to 0.23 m/s.
+
+### Phase 2 completion note — 6 Sep 2026
+
+**The transport kernel is done and is the spine every later stage runs on.**
+
+- **`src/transport/field.py`** — forcing resampled once onto a projected grid and held in memory. The particle loop never touches a projection, never converts degrees to metres, and never opens a NetCDF file. Velocity vectors are rotated into the grid frame by a meridian convergence **measured from the projection itself** rather than derived analytically, which removes any chance of a sign error.
+- **`src/transport/kernel.py`** — RK4 advection with Euler–Maruyama diffusion by operator splitting, per-particle windage and diffusivity, per-element seed times, `origin_marker` labelling, and beaching that freezes rather than deletes.
+
+**Measured:**
+
+| Property | Value | Budget |
+|---|---|---|
+| 1e5 particles × 48 h, full physics | **9.4 s** (49 ms/step) | 30 s ✅ |
+| Forcing load + resample | 1.2 s | — |
+| Field memory | 12.3 MB | — |
+| Round trip, advection only, windage off | **0.0 m** | exact reversibility |
+| Round trip, windage fixed | 13 m | explainable |
+| Shear-only separation over 48 h | 2.1–3.1× | realistic strain |
+| Displacement over 48 h | 57 km mean | plausible |
+
+**The guard works.** `simulate()` raises rather than integrating backwards with diffusion enabled, with an error message that explains why. This is the claim the whole project rests on, and it is now enforced in code rather than documented as a convention.
+
+**113 tests passing** (29 new). Two significant findings logged: P-14 (reversibility holds only with per-particle parameters held fixed — led to `TransportParams.proposal()`) and P-15 (a "64× shear growth" figure that turned out to be windage variance, withdrawn and corrected).
 
 ---
 
