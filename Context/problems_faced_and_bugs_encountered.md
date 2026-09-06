@@ -171,6 +171,39 @@ Logged in advance so they are recognised in seconds rather than debugged for hou
 
 ---
 
+### [P-17] The posterior was overconfident by treating mask cells as independent
+**2026-09-06** · Phase 3 · **Severity:** critical (caught by measurement, not by inspection)
+
+**Symptom** — The first working inversion recovered a source in 1.7 s and produced a 95% credible region of **306 km²** — an order of magnitude tighter than the 2,000–8,000 km² the design anticipates. The true source fell *outside* the 50% region and the true release time *outside* the 95% interval. Effective sample size was 0.77%.
+
+**Root cause** — The Bernoulli likelihood sums one term per mask cell. At a 500 m grid a 128 km² slick is ~500 cells, so the log-likelihood is a sum of 500 terms and any small difference in fit is multiplied by 500. **The cells are not independent observations.** Neighbouring cells are perfectly correlated at scales the drift model cannot resolve, and the binding scale is the forcing resolution: at CMEMS 1/12° the model has no information about structure below ~9 km, so two mask cells 2 km apart say the same thing about a source hypothesis. This is a textbook pseudo-likelihood overconfidence bug.
+
+**Fix** — Temper the likelihood by `n_effective / n_cells`, where `n_effective = slick area / correlation area` and the correlation length defaults to the forcing resolution. Then **measure it**, with `scripts/calibrate_inversion.py`, over 14 synthetic releases:
+
+| Decorrelation length | 95% coverage | t0 coverage | median 95% area | ESS |
+|---|---|---|---|---|
+| **none (cells independent)** | **7%** | 0% | 180 km² | 0.4% |
+| 2 km | 43% | 29% | 284 km² | 1.1% |
+| 5 km | 100% | 93% | 563 km² | 24.7% |
+| **9 km (forcing resolution, default)** | **100%** | 93% | 630 km² | 38.9% |
+
+**Lesson** — A nominal 95% region that contains the truth 7% of the time is the exact failure this project exists to avoid: it is the mechanism by which a system confidently names an innocent ship. It was invisible to inspection — the code was correct, the algebra was correct, the runtime was good, and the answer looked precise. **Only measuring coverage revealed it.** This is why calibration, not accuracy, is the headline metric: accuracy would have looked excellent here.
+
+---
+
+### [P-16] A convex hull is not a slick
+**2026-09-06** · Phase 3 · **Severity:** major
+
+**Symptom** — The first calibration harness built its synthetic observation by taking the convex hull of the drifted particle cloud. Coverage numbers came out strange and inconsistent across settings.
+
+**Root cause** — [testing_strategy.md](testing_strategy.md) specifies thresholding particle *density* into a slick polygon; I used a hull instead, which was faster to write. A hull is far larger than the plume it encloses — it fills in every concave gap a real drifting slick has. Scoring hypotheses against an inflated observation systematically rewards those that over-spread, biasing the posterior away from the true compact source.
+
+**Fix** — Added `ObservedMask.from_points()`, which histograms the particles, smooths, and thresholds to the level containing 85% of the mass. A test now asserts the density-thresholded mask is strictly smaller than the hull of the same cloud.
+
+**Lesson** — The shortcut changed the physics of the test, not just its speed. It is also a reminder that the written strategy said the right thing and the implementation quietly did something else; the deviation was not deliberate and was not recorded until it caused wrong numbers.
+
+---
+
 ### [P-15] A "64x shear growth" figure that was actually windage variance
 **2026-09-06** · Phase 2 · **Severity:** major (a wrong claim, caught before it reached a slide)
 
