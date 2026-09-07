@@ -1,116 +1,92 @@
-# SIH26143 — Oil Spill Detection & AIS Vessel Attribution
+# Context — planning and review documentation
 
 **Problem Statement:** Leveraging satellite imagery to determine oil spills at sea along with AIS data correlations to identify the vessel responsible.
-**Organisation:** NTRO · **Category:** Software · **Team:** IIIT Kottayam, 6 members (CSE / AI-DS)
+**Organisation:** NTRO · **Category:** Software · **PS ID:** SIH26143
+
+> The project overview, figures and quickstart live in the [root README](../README.md).
+> This folder is the engineering record: what we planned, what we measured, and what went wrong.
 
 ---
 
-## What this system does
+## What these documents are for
 
-Given one Sentinel-1 SAR scene containing a suspected oil slick, the system answers three questions and states how much to trust each answer:
+They serve three audiences, and the third is the one that matters most.
 
-1. **Is that dark patch actually oil?** — U-Net segmentation followed by a *physical wind-detectability gate* that abstains where oil–water contrast is physically impossible.
-2. **Where and when did it come from?** — Bayesian source inversion. Uncertainty is reported as credible regions in km², never as a point.
-3. **Which vessel?** — Each candidate vessel's AIS track is used as a *generative hypothesis*, forward-simulated, and scored by how well it reproduces the observed slick — normalised against an explicit "the polluter wasn't transmitting AIS" hypothesis.
+1. **Round 2 judges** — depth behind the demo: why the method is what it is, what it cannot do, and how we know.
+2. **Round 3 (ourselves, in December)** — the blueprint for the production system, with every accepted shortcut and its exit path recorded.
+3. **Us, next week** — a decision written down is a decision that does not get relitigated at 2 a.m.
 
-> **The one sentence:** We don't name the ship. We take two hundred vessels down to three, and we tell you exactly how much to trust that number.
+Each document describes the **full system**, then marks a `PROTOTYPE SCOPE` boundary for what was actually built. That boundary is deliberate and disclosed, not a gap.
 
 ---
 
-## Scope: what is built when
+## The documents
 
-| Round | Deliverable | Status |
+| Document | Purpose | State |
 |---|---|---|
-| **Round 1** | Running prototype, end-to-end on pre-cached cases | 🔨 **This build** — 14-day sprint |
-| **Round 2** | Approach, architecture, methodology, evidence of rigour | 📄 **These documents** |
-| **Round 3** | Production system — raw scene ingest, OpenOil weathering, scale | 🔮 Blueprint only |
-
-Every document in this folder describes the **full system**, then marks a `PROTOTYPE SCOPE` boundary showing what actually gets built now. That boundary is deliberate and disclosed, not a gap.
-
-### Prototype simplifications (all disclosed, all reversible)
-
-| Full system | Prototype | Why it's safe |
-|---|---|---|
-| ESA SNAP raw GRD ingest | Pre-calibrated σ⁰ dB tiles (Zenodo) | Zero innovation credit in calibration; highest install-failure risk |
-| OpenDrift / OpenOil solver | ~150-line Lagrangian RK4 kernel | Differentiator is the *inversion method*, not the solver. No weathering in prototype |
-| React + deck.gl SPA | Single HTML page, deck.gl from CDN | Identical visuals, no Node toolchain |
-| Live CMEMS / CDS API calls | Pre-cached NetCDF per case | Venue WiFi will fail. Demo must be fully offline |
-| Global coverage | 3 prepared cases | Depth over breadth for a 14-day build |
+| [requirements.md](requirements.md) | Every PS clause traced to a testable acceptance criterion, plus explicit non-goals | Frozen before coding |
+| [architecture.md](architecture.md) | The `Case` spine, the four frozen contracts, build-vs-reuse decisions | Frozen before coding |
+| [technical_design.md](technical_design.md) | Physics gate, Bayesian source inversion, vessel-conditioned attribution | Frozen before coding |
+| [phasewise_roadmap.md](phasewise_roadmap.md) | Ten phases with a completion note and measurements for each | Updated per phase |
+| [testing_strategy.md](testing_strategy.md) | The truth harness and its anti-cheating rules | Expanded during build |
+| [deployment.md](deployment.md) | Environment, offline runbook, demo-day failure drills | Live |
+| [security_review.md](security_review.md) | Wrongful-attribution controls, licensing, AIS sensitivity, executed checklist | ✅ Executed |
+| [performance_review.md](performance_review.md) | Budgets against measurements | ✅ Measured |
+| [engineering_review.md](engineering_review.md) | Standards and the accepted technical-debt register | Live |
+| **[problems_faced_and_bugs_encountered.md](problems_faced_and_bugs_encountered.md)** | **24 findings, including six silent successes** | ✍️ Continuous |
 
 ---
 
-## Regional strategy
+## The three claims the project rests on
 
-**Validate where the data is real. Demonstrate transferability to Indian waters.**
+Everything else is engineering. These are where it is won or lost.
 
-- **Primary (real end-to-end):** Danish waters — Kattegat / Skagerrak. Real AIS (Danish Maritime Authority), real CMEMS currents, real ERA5 wind.
-- **Secondary (India story):** Arabian Sea / Gulf of Kutch. Real CMEMS + ERA5, **synthetic AIS** — which the problem statement explicitly permits.
+**1 · Look-alike rejection is a physics problem, not a capacity problem.**
+A low-wind patch and an oil slick are genuinely inseparable in image space. The information that distinguishes them is not in the image, so we inject it from the wind field and abstain where no answer is physically possible.
 
-Disclosed synthetic data is a methodological choice. Discovered synthetic data is a credibility collapse. It goes on the slide.
+**2 · Backward drift is not the inverse of forward drift.**
+Advection reverses; turbulent diffusion does not. Backward integration narrows the search; forward simulation computes the answer. The kernel raises rather than integrating backwards with diffusion enabled.
 
----
-
-## Repository layout (target)
-
-```
-SIH143/
-├── Context/              ← you are here: all planning + review docs
-├── data/
-│   ├── cases/            ← one folder per prepared demo case
-│   ├── forcing/          ← cached CMEMS + ERA5 NetCDF
-│   ├── ais/              ← DMA CSV → parquet
-│   └── training/         ← Zenodo SAR oil spill Parts I–III
-├── src/
-│   ├── detect/           ← U-Net, physics gate, characterisation
-│   ├── transport/        ← Lagrangian kernel, forcing readers
-│   ├── inversion/        ← proposal, ensemble, posterior
-│   ├── attribution/      ← AIS ingest, vessel hypotheses, ranking
-│   ├── contracts/        ← the four frozen schemas
-│   └── api/              ← FastAPI
-├── web/                  ← single-page deck.gl UI
-├── notebooks/            ← training + evaluation
-└── scripts/              ← run_case.py, build_synthetic_truth.py
-```
+**3 · A vessel's AIS track is a generative hypothesis, not a feature vector.**
+A discharge from a moving vessel is a line source in space-time, and AIS already gives us its parameters. We simulate what each vessel *would have produced* and ask which prediction matches the satellite — no invented weights, and the dark-vessel hypothesis competes on the same scale.
 
 ---
 
-## Quickstart
+## What was measured
+
+| | |
+|---|---|
+| End to end, scene → ranked vessels | **14.5 s** (budget 60 s) |
+| Tests | **283 passing** |
+| Calibration at 50% / 68% | 0.50 / 0.67 — honest |
+| Calibration at 90% / 95% | 0.75 / 0.83 — **below target**, cause isolated (P-22) |
+| Culprit in candidate set | **1.00** |
+| Dark hypothesis ranked top when culprit removed | **1.00** |
+| Top-3 recall | **0.44** — below the 0.60 target |
+| Traffic reduction | **179×** |
+
+Two targets are missed. Both are reported as misses, with the cause separated from the symptom rather than tuned away.
+
+---
+
+## The pattern worth taking away
+
+Six of the twenty-four logged findings were **silent successes** — plausible, confident, wrong output with no error anywhere. Not one was caught by a crash; every one was caught by measuring something a second way, or by attributing an effect before believing it.
+
+That is now a rule, and it is enforced in the test suite:
+
+> **Any check whose job is to find something must be shown failing on a planted example before its passing result is believed.**
+
+`tests/test_offline.py` proves its own network guard bites. `tests/test_audit.py` plants an accusatory string and asserts the audit fails. Those exist because [P-24](problems_faced_and_bugs_encountered.md) was an audit that reported twelve clean passes while one of its checks examined nothing at all.
+
+---
+
+## Regenerating the figures
+
+The figures in the root README are drawn from real pipeline output, not illustrated:
 
 ```bash
-python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
+python scripts/make_figures.py
 ```
 
-```bash
-python scripts/run_case.py --case data/cases/kattegat_2024_03_11 --out out/
-```
-
-```bash
-uvicorn src.api.main:app --host 127.0.0.1 --port 8000
-```
-
-Then open `http://127.0.0.1:8000`. The demo runs entirely offline from cached case data.
-
----
-
-## Document index
-
-| Document | Purpose | Lifecycle |
-|---|---|---|
-| [requirements.md](requirements.md) | PS clause traceability, acceptance criteria, explicit non-goals | Frozen before coding |
-| [architecture.md](architecture.md) | System structure, the `Case` spine, four frozen contracts | Frozen before coding |
-| [technical_design.md](technical_design.md) | The science: segmentation, physics gate, inversion, attribution | Frozen before coding |
-| [phasewise_roadmap.md](phasewise_roadmap.md) | 14-day sprint, day-by-day, 6 owners, gates | Frozen before coding |
-| [testing_strategy.md](testing_strategy.md) | Synthetic ground-truth generator, metrics, calibration protocol | Basic now, expanded during build |
-| [deployment.md](deployment.md) | Environment, packaging, demo-day runbook, failure drills | Live during build |
-| [security_review.md](security_review.md) | Licensing, AIS sensitivity, defamation risk, secrets | After features complete |
-| [performance_review.md](performance_review.md) | Budgets, profiling, hotspots | After it works |
-| [engineering_review.md](engineering_review.md) | Code quality, tech debt, Round 3 handoff | Near the end |
-| [problems_faced_and_bugs_encountered.md](problems_faced_and_bugs_encountered.md) | Running log of every trap hit and solved | **Continuous — this is Round 2 material** |
-
----
-
-## Status
-
-**Sprint start:** 6 September 2026 · **Round 1 demo target:** 19 September 2026
-
-Live status is tracked in [phasewise_roadmap.md](phasewise_roadmap.md).
+A figure that looks wrong means the pipeline is wrong.
