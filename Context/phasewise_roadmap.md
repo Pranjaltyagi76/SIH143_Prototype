@@ -406,3 +406,45 @@ The export stage turns `out/` into a 2.5 MB static bundle: scene PNG capped at 1
 `serve()` refuses any non-loopback host in code — no auth layer plus vessel attribution output means it must never be reachable from a conference network.
 
 **223 tests passing** (23 new). One significant finding: **P-20**, a missing SAR backdrop caused by three stacked defects, none of which raised an error.
+
+### Phase 7 completion note — 7 Sep 2026
+
+**The numbers exist, they were measured honestly, and two of them miss target.**
+
+```bash
+python scripts/truth_harness.py --n 24                    # fair test
+python scripts/truth_harness.py --n 24 --matched-params   # isolates the cause
+```
+
+Every trial runs the whole chain — inject, detect, invert, attribute — so the figures include detector error.
+
+#### Calibration — the metric that matters more than accuracy
+
+| Nominal | Matched priors | **Mismatched (fair test)** |
+|---|---|---|
+| 50% | 0.50 | **0.50** ✅ |
+| 68% | 0.83 | **0.67** ✅ |
+| 90% | 1.00 | **0.75** ❌ |
+| 95% | 1.00 | **0.83** ❌ (target ≥ 0.90) |
+
+**The machinery calibrates correctly when its priors cover reality; the miscalibration is prior misspecification and lives entirely in the tails.** Not fixed — widening the drift prior would lift the number, but the literature windage range *is* 1–4%, and widening it because our own generator went outside it would be tuning to the test. See P-22.
+
+#### Attribution
+
+| Metric | Measured | Target | |
+|---|---|---|---|
+| Culprit in candidate set | **1.00** | — | ✅ the prefilter never drops the answer |
+| Top-1 recall | 0.33 | 0.30–0.50 | ✅ |
+| Top-3 recall | **0.44** | 0.60–0.80 | ❌ below target |
+| Median traffic reduction | **179×** | 50–100× | ✅ exceeds |
+| **Dark hypothesis ranked top when culprit removed** | **1.00** | — | ✅ the most important result |
+
+#### Envelope grows with lookback, as it must
+
+643 km² @ 12 h → 711 @ 24 h → 1,053 @ 36 h → 1,656 @ 48 h.
+
+#### Completion rate
+
+12 of 24 trials completed. Breakdown: 5 no oil confirmed by the detector, 4 no AIS track spanning the discharge window (a harness limitation — synthetic tracks are short), 2 slick below detectable size, 1 too few particles surviving. Excluding the harness artefact, 12/20 = 60%.
+
+**239 tests passing** (16 new). Two bugs found by the harness *before* it produced a single metric: **P-21** (slick brightness scaled with Monte Carlo particle count) and a thin slick being consumed entirely by the boundary annulus — the signature shape of a continuous discharge.

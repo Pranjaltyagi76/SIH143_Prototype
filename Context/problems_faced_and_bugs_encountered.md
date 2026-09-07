@@ -171,6 +171,49 @@ Logged in advance so they are recognised in seconds rather than debugged for hou
 
 ---
 
+### [P-22] The 95% region is overconfident, and the harness said which half is wrong
+**2026-09-07** · Phase 7 · **Severity:** major (a real limitation, reported not fixed)
+
+**Symptom** — With the anti-cheating rules switched on, the 95% credible region contained the true source **83%** of the time and the 90% region **75%**. Both fall short. In Phase 3, the same code reported **100%** coverage.
+
+**Root cause** — Phase 3's figure was measured without two things the harness now does: it used the true particle cloud rather than the detector's mask, and it generated drift with the *same* distributions the inversion assumes. The second is the one that matters. The harness now generates windage from U(0.005, 0.055) and diffusivity from LogU(0.5, 20), while the inversion assumes the literature ranges U(0.01, 0.04) and LogU(1, 10). When the truth lies outside the assumed prior, the posterior is too tight — which is the correct behaviour of a correct algorithm given a wrong prior, not a defect.
+
+Running both modes decomposes it cleanly:
+
+| Nominal | Matched priors | Mismatched (fair test) |
+|---|---|---|
+| 50% | 0.50 | 0.50 |
+| 68% | 0.83 | 0.67 |
+| 90% | **1.00** | **0.75** |
+| 95% | **1.00** | **0.83** |
+
+**The inversion machinery calibrates correctly — conservatively, even — when its priors cover reality. The miscalibration is prior misspecification, and it lives entirely in the tails.**
+
+**Fix** — None applied, deliberately. Widening the drift prior would lift the number, but the literature range for windage *is* 1–4%; widening it because our own generator went outside it would be tuning to the test, which is the exact failure this project has caught four times already. What we do instead: report both curves, state that the operational prior should be widened because real oil's windage varies with type, weathering and sea state more than one literature range captures, and record the shortfall in the acceptance criteria rather than quietly meeting them.
+
+**Lesson** — **Measure the thing twice, differently, and the difference tells you where the error lives.** One coverage number would have left "the inversion is overconfident" as an unactionable verdict. Two numbers separate "the algorithm is wrong" from "the prior is wrong", and only the second is survivable.
+
+It also retrospectively devalues the Phase 3 result. That 100% was real, but it answered a narrower question than it appeared to: *machinery correct given correct priors*, not *system calibrated end to end*. Both belong on the slide, labelled.
+
+---
+
+### [P-21] Slick brightness depended on the Monte Carlo particle count
+**2026-09-07** · Phase 7 · **Severity:** major
+
+**Symptom** — The first harness run skipped three of four trials: two for "injected slick below the minimum detectable size", one for "no oil confirmed by the detector". Detection rate 25%, which would have looked like a badly underperforming detector.
+
+**Root cause** — Not the detector. `render_damping` computed surface concentration as raw **particle count per scene cell**, so a slick's radar darkness scaled with how many particles the simulation happened to use. Particle count is a Monte Carlo sample size — a numerical parameter with no physical meaning. Doubling N doubled the apparent oil.
+
+The compounding effect is what made it bite: the harness deliberately generates with high diffusivity, so clouds spread wider, so each cell held fewer particles, so the slick faded below the detection threshold *because it was well dispersed*. The harness was reporting its own generator's spread as an undetectable spill.
+
+**Fix** — Damping now depends on the **fraction of the release** in each cell, not the count. Verified invariant: peak damping −7.7/−6.9/−6.9 dB and detectable area within 1.5% across N = 2,000 / 8,000 / 32,000, where previously it scaled with N. The physics is also better this way — mass per unit area genuinely falls as a slick spreads, so a thin sheen damps less than a thick film.
+
+**Lesson** — **A numerical parameter had leaked into the physics.** N controls sampling accuracy and nothing else; the moment a physical output moves when you change it, the model is wrong regardless of how plausible the output looks. The invariance check is two lines and should have been written when the injector was.
+
+The harness earned its cost on its very first run, before producing a single metric.
+
+---
+
 ### [P-20] The SAR backdrop never appeared, and nothing reported an error
 **2026-09-07** · Phase 6 · **Severity:** major
 

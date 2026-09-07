@@ -141,17 +141,32 @@ class ObservedMask:
             )
 
         # The annulus straddles the boundary: cells just inside and just outside.
+        #
+        # Erosion is reduced rather than fixed, because a long thin slick is
+        # exactly what a continuous discharge from a moving vessel looks like --
+        # the signature case this whole system exists for. At a 1 km annulus on
+        # a 500 m grid, a slick narrower than four cells erodes to nothing and
+        # would be refused outright. Backing the erosion off until something
+        # survives keeps those cases invertible; the outward half of the annulus
+        # is unaffected, so boundary uncertainty is still honoured on the side
+        # where it costs a hypothesis nothing to be wrong.
         pad = max(1, int(round(boundary_uncertainty_m / grid_m)))
+        inner = mask
+        for attempt in range(pad, 0, -1):
+            eroded = binary_erosion(mask, iterations=attempt)
+            if eroded.any():
+                inner = eroded
+                break
+
         outer = binary_dilation(mask, iterations=pad)
-        inner = binary_erosion(mask, iterations=pad)
         unobserved = outer & ~inner
         # Cells in the annulus are excluded from BOTH terms of the likelihood.
         mask = mask & ~unobserved
 
         if not mask.any():
             raise ValueError(
-                "boundary uncertainty consumed the entire slick; reduce "
-                "boundary_uncertainty_m or use a finer grid"
+                "slick rasterised to nothing after boundary handling; it is "
+                f"smaller than one {grid_m:.0f} m grid cell"
             )
 
         return cls(x0=x0, y0=y0, dx=grid_m, dy=grid_m, mask=mask,

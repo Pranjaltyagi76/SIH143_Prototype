@@ -32,9 +32,22 @@ import numpy as np
 # mineral oil on the sea surface sit around 6-12 dB at C-band VV.
 MAX_DAMPING_DB = 9.0
 
-# Surface concentration at which damping is ~63% saturated, in particles per
-# scene cell. Calibrated so a few thousand particles produce a visible slick.
-SATURATION_DENSITY = 1.2
+# Surface concentration at which damping is ~63% saturated, expressed as the
+# FRACTION of the total release held in one scene cell.
+#
+# It must be a fraction, not a raw particle count. Particle count is a Monte
+# Carlo sample size -- a numerical parameter with no physical meaning -- so
+# tying damping to it made a slick's brightness depend on how many particles we
+# happened to simulate. Doubling N doubled the apparent oil. Worse, a widely
+# dispersed cloud went below the detection threshold simply because its
+# particles were spread thinner, which the harness then reported as an
+# undetectable spill. See P-21.
+#
+# As a fraction the model is N-invariant and physically right: mass per unit
+# area falls as the slick spreads, so a thin sheen damps less than a thick film.
+# At 1.2e-4, a release concentrated into ~8,000 cells (about 80 km^2 at 100 m
+# resolution) is near saturation.
+SATURATION_FRACTION = 1.2e-4
 
 # Smoothing applied to the damping field, metres. Real slick edges are sharper
 # than wind fronts but not pixel-sharp.
@@ -66,10 +79,14 @@ def render_damping(
     scene_lon: np.ndarray,
     scene_lat: np.ndarray,
     max_damping_db: float = MAX_DAMPING_DB,
-    saturation_density: float = SATURATION_DENSITY,
+    saturation_fraction: float = SATURATION_FRACTION,
     smoothing_m: float = EDGE_SMOOTHING_M,
 ) -> np.ndarray:
-    """Damping field in dB (negative) for a particle cloud on a scene grid."""
+    """Damping field in dB (negative) for a particle cloud on a scene grid.
+
+    Invariant to the number of particles: what matters is the fraction of the
+    release in each cell, not how finely the cloud was sampled.
+    """
     from scipy.ndimage import gaussian_filter
 
     dlon = float(scene_lon[1] - scene_lon[0])
@@ -89,9 +106,14 @@ def render_damping(
     sigma_cells = max(smoothing_m / max(cell_m, 1e-6), 0.8)
     density = gaussian_filter(density, sigma=sigma_cells)
 
+    # Normalise to a fraction of the total release, so the result does not
+    # depend on the Monte Carlo particle count.
+    total = max(float(inside.sum()), 1.0)
+    density = density / total
+
     # Saturating damping: more oil past a point changes nothing, which is why
     # damping ratio cannot be inverted for film thickness.
-    return -max_damping_db * (1.0 - np.exp(-density / saturation_density))
+    return -max_damping_db * (1.0 - np.exp(-density / saturation_fraction))
 
 
 def inject(
@@ -159,5 +181,5 @@ __all__ = [
     "render_damping",
     "read_scene",
     "MAX_DAMPING_DB",
-    "SATURATION_DENSITY",
+    "SATURATION_FRACTION",
 ]
