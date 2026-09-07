@@ -171,6 +171,33 @@ Logged in advance so they are recognised in seconds rather than debugged for hou
 
 ---
 
+### [P-24] The overclaiming audit passed by checking nothing
+**2026-09-07** · Phase 9 · **Severity:** high (a control that silently did not exist)
+
+**Symptom** — `scripts/audit.py` reported **12 passed, 0 failures**, including "no accusatory language — 9 terms checked in the UI, case output and string literals". Clean report, ready to demo.
+
+**Root cause** — The string-literal scan used a regex with a backreference:
+
+```python
+literal = re.compile(r"""(['"])((?:(?!\1).){4,600}?)\1""", re.S)
+```
+
+Writing that file through a shell heredoc mangled `\1` into a **literal 0x01 control byte**. The compiled pattern therefore hunted for a SOH character, which appears nowhere in any source file, so the loop body never executed. The audit examined **zero string literals** and reported success over nothing.
+
+Two earlier false positives had already made this harder to see: the check flagged `src/contracts/candidates.py` (which *defines* the banned list) and `np.random.Generator` (a type annotation, not randomness). Fixing those noisy failures is what left the silent one looking like a clean pass.
+
+**Fix** — Replaced the regex with `ast`-based literal extraction, which handles escapes, triple quotes, f-strings and raw prefixes correctly and cannot be mangled by quoting. Then, crucially, **proved the check bites**: `tests/test_audit.py` plants `"this vessel is guilty"` into a module and asserts the audit fails. Verified by hand too — planting the string produced `FAIL no accusatory language src/transport/kernel.py: 'guilty'`, and removing it restored the pass.
+
+**Lesson** — **A control that reports success without doing anything is worse than no control**, because it converts an open question into a settled one. This is the sixth time on this project a failure has been a *silent success* rather than a crash (P-15, P-17, P-18, P-19, P-21, and now this one), and the pattern is now unmistakable enough to state as a rule:
+
+> Any check whose job is to find something must be shown failing on a planted example before its passing result is believed.
+
+The offline tests in the same phase were written that way from the start — `test_the_network_block_actually_blocks` exists precisely so the network guard cannot quietly stop guarding. The language check was not, and that is the only reason the two differed.
+
+Secondary lesson: **do not write regexes through a shell heredoc.** Two separate escaping layers, and the failure is silent.
+
+---
+
 ### [P-23] The Zenodo dataset cannot be used for end-to-end cases
 **2026-09-07** · Phase 8 · **Severity:** major (an architectural finding, not a defect)
 

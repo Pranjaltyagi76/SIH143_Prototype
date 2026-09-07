@@ -151,8 +151,44 @@ AIS is publicly broadcast, but "public" is not "unrestricted".
 
 ## 8. Findings log
 
-*Populated during the Day 12 review.*
+Review executed 2026-09-07. **The checklist in section 7 is now a program**,
+`scripts/audit.py`, run on every change rather than read once under pressure.
 
-| # | Finding | Severity | Status | Resolution |
-|---|---|---|---|---|
-| | *(none yet — review not run)* | | | |
+```bash
+python scripts/audit.py
+```
+
+**Result: 12 passed, 0 warnings, 0 failures.**
+
+| Control | Check | Status |
+|---|---|---|
+| SC-1 | Dark-vessel hypothesis present in UI and in every case output | ✅ |
+| SC-2 | No accusatory language in UI, case output, or string literals | ✅ |
+| SC-3 | Interface states its disclaimer and assumptions | ✅ |
+| FR-3a | Every abstention carries its reason | ✅ 9/14 detections abstained |
+| SEC | `.env` untracked; no credential-shaped strings | ✅ |
+| SEC | No datasets committed (`data/` holds only `.gitkeep`) | ✅ |
+| SEC | API refuses non-loopback binding | ✅ enforced in `serve()` |
+| SEC | Case id validated against the directory listing | ✅ traversal rejected |
+| W-14 | Synthetic MMSI cannot collide with a real vessel | ✅ all outside MID 201–775 |
+| NFR-1 | No remote assets; deck.gl vendored | ✅ |
+| NFR-3 | All randomness seeded; no bare `np.random` | ✅ |
+| DEMO | Demo cases built with UI bundles | ✅ 2 cases |
+
+### Findings
+
+| # | Finding | Severity | Status |
+|---|---|---|---|
+| 1 | The language check silently examined zero string literals — a mangled regex searching for a byte that never occurs. Reported a clean pass over nothing | **High** | ✅ Fixed: replaced with `ast`-based extraction, and `tests/test_audit.py` plants a violation to prove the check bites (P-24) |
+| 2 | The seeded-randomness check flagged `np.random.Generator`, a type annotation, as unseeded randomness | Low | ✅ Fixed: only lowercase legacy functions are flagged |
+| 3 | The offline test initially blocked loopback, failing the API tests for reasons unrelated to NFR-1 — asyncio builds its self-pipe from a loopback socketpair on Windows | Low | ✅ Fixed: only off-machine access is blocked |
+
+### Residual risk, accepted and stated
+
+**Wrongful attribution remains the critical risk and is not eliminated by any
+control here.** The controls ensure the system *reports* honestly — abstains
+with a reason, carries the dark-vessel hypothesis, states its assumptions,
+never asserts responsibility. They do not make it right. The 95% credible
+region spans thousands of km², top-3 recall is 0.44, and there is no
+end-to-end validation on real spills. Those numbers belong next to any output
+this system produces.

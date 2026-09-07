@@ -159,23 +159,42 @@ Multi-case throughput (we run three) · concurrent users (there is one) · cold-
 
 ## 8. Measurements
 
-*Filled in Day 11–12, after the pipeline works end to end. Empty cells are honest.*
+Measured 2026-09-07 on the development machine (RTX 3050 laptop, 15.3 GB RAM,
+Python 3.13), from `out/log.jsonl` across the built cases. Detection runs on
+**CPU** here -- the classical segmenter needs no GPU.
 
-| Stage | Budget | Measured | Machine | Notes |
-|---|---|---|---|---|
-| Load case + forcing | 3 s | | | |
-| U-Net inference (GPU) | 3 s | | | |
-| U-Net inference (CPU) | 15 s | | | |
-| Gate + characterisation | 1 s | | | |
-| Backward proposal | 2 s | | | |
-| Forward ensemble | 20 s | | | |
-| Likelihood evaluation | 2 s | | | |
-| KDE + credible regions | 3 s | | | |
-| AIS + tracks | 3 s | | | |
-| Vessel-conditioned run | 8 s | | | |
-| Ranking | 1 s | | | |
-| Serialisation | 2 s | | | |
-| **Total** | **48 s** | | | |
+| Stage | Budget | **Measured (median)** | Notes |
+|---|---|---|---|
+| Detection (stages 1-3) | 3 s GPU / 15 s CPU | **4.2 s** | Classical segmenter, CPU. Dominated by the 60 km background filter over 3 Mpx |
+| Inversion (stage 5) | 25 s | **5.9 s** | Two refinement rounds; closed-form likelihood |
+| Attribution (stage 7) | 12 s | **2.0 s** | ~930 hypotheses, one forward run |
+| UI export | 2 s | **2.5 s** | Scene PNG re-encode dominates |
+| **End to end** | **< 60 s** | **14.5 s** | ✅ **4x inside budget** |
+
+Component measurements taken during development:
+
+| Component | Measured |
+|---|---|
+| Transport kernel, 1e5 particles x 48 h, full physics | 9.4 s (49 ms/step) |
+| Forcing load and resample to the projected grid | 1.2 s |
+| Forcing field in memory | 12.3 MB |
+| UI bundle per case | 1.2-2.5 MB |
+
+### What the closed form bought
+
+The observation operator evaluated literally is ~4x10^9 operations per case.
+The algebraic collapse in [technical_design.md](technical_design.md) section 4.3
+reduces it to O(mask cells + particles) with no approximation. Inversion sits at
+5.9 s rather than the tens of seconds a literal implementation would cost, and
+that is most of why the end-to-end figure is 14.5 s rather than close to a
+minute.
+
+### Not optimised, deliberately
+
+Detection is the slowest stage and the easiest to speed up -- the 60 km
+uniform filter over 3 Mpx is most of it. It is left alone because 14.5 s is
+already 4x inside budget, and the profiling rule in section 5 says optimise
+against a measurement and a need. There is currently no need.
 
 ## 9. Optimisation log
 

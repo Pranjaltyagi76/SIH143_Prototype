@@ -480,3 +480,40 @@ One real weakness caught by its own test: the scene guard accepted **linear σ�
 #### Blocking Phase 8 completion
 
 Three registrations (all free) and a decision about 96 GB. Until then the pipeline runs on synthetic cases, which is what Phases 1–7 were built to make possible.
+
+### Phase 9 completion note — 7 Sep 2026
+
+**The two guarantees that were going to be checked by hand are now programs.**
+
+```bash
+python -m pytest tests/test_offline.py   # NFR-1 and NFR-3, enforced
+python scripts/audit.py                  # the security checklist, executed
+```
+
+#### Offline, enforced rather than asserted
+
+`tests/test_offline.py` replaces the socket layer with one that raises on any connection leaving the machine, then runs the whole pipeline, every API endpoint, and a full synthetic case build through it. Loopback is permitted deliberately — the API binds to it, and asyncio builds its self-pipe from a loopback socketpair on Windows. The fixture is itself tested: a guard that cannot fail proves nothing.
+
+Same file pins **NFR-3**: bit-identical across reruns, and a different seed genuinely changes the posterior.
+
+#### Audit: 12 checks, all passing
+
+Accusatory language · disclaimers · dark-vessel hypothesis reaching the UI · abstention reasons · secrets · committed datasets · loopback binding · path traversal · synthetic MMSI safety · vendored assets · seeded randomness · demo readiness.
+
+#### Measured performance
+
+| Stage | Budget | Measured |
+|---|---|---|
+| Detection | 3–15 s | **4.2 s** |
+| Inversion | 25 s | **5.9 s** |
+| Attribution | 12 s | **2.0 s** |
+| Export | 2 s | **2.5 s** |
+| **End to end** | **< 60 s** | **14.5 s** ✅ 4× inside budget |
+
+#### The finding
+
+**One audit check was doing nothing at all.** The language scan's regex backreference was mangled into a literal 0x01 byte by a shell heredoc, so it searched for a character no file contains and reported "9 terms checked" having examined zero. Replaced with `ast` parsing and — the part that matters — proved to bite by planting a violation. Logged as **P-24**.
+
+That is the sixth silent success on this project. The rule is now explicit: *any check whose job is to find something must be shown failing on a planted example before its passing result is believed.*
+
+**283 tests passing** (18 new).
