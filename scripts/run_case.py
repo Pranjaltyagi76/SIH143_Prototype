@@ -184,13 +184,20 @@ def stage_attribute(ctx: RunContext) -> None:
                                              if isinstance(v, (int, float, str, bool))}})
 
 
-def stage_particles(ctx: RunContext) -> None:
-    """Downsample trajectories for the interface.  Owner: M5/M6.
+def stage_export(ctx: RunContext) -> None:
+    """Build the static bundle the interface renders.  Owner: M5/M6.
 
-    The full ensemble stays in .npz; the UI gets ~5k trails, which is what
-    deck.gl needs to hold 60 fps.
+    The full ensemble stays in .npz; the page gets a scene PNG, a vectorised
+    coastline, weighted posterior cells and ~2k particle trails.
     """
-    raise NotImplementedError("Phase 6: UI export")
+    from src.api.export import export_ui
+    from src.ingest.case_builder import load_forcing_bundle
+    from src.transport import ForcingField
+
+    field = ForcingField.from_case(ctx.case_dir, load_forcing_bundle(ctx.case_dir))
+    diag = export_ui(ctx.case_dir, field, ctx.case, seed=ctx.seed)
+    log_event(ctx, {"stage": "export", **{k: v for k, v in diag.__dict__.items()
+                                          if isinstance(v, (int, float, str, bool))}})
 
 
 @dataclass(frozen=True)
@@ -207,7 +214,7 @@ STAGES: tuple[Stage, ...] = (
     Stage("invert", "posterior.json", "source_posterior.json", "M2", stage_invert),
     Stage("forecast", "forecast.json", None, "M2", stage_forecast),
     Stage("attribute", "candidates.json", "ranked_candidates.json", "M4", stage_attribute),
-    Stage("particles", "particles.json", None, "M5", stage_particles),
+    Stage("export", "ui/manifest.json", None, "M5", stage_export),
 )
 
 

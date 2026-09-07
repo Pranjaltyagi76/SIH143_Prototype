@@ -95,7 +95,7 @@ def test_seed_override_is_reported(case_dir: Path, capsys):
 
 def test_stage_registry_is_coherent():
     names = [s.name for s in STAGES]
-    assert names == ["detect", "invert", "forecast", "attribute", "particles"]
+    assert names == ["detect", "invert", "forecast", "attribute", "export"]
     assert len(set(names)) == len(names), "stage names must be unique"
     outputs = [s.output for s in STAGES]
     assert len(set(outputs)) == len(outputs), "stage outputs must be unique"

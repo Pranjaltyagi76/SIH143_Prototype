@@ -382,3 +382,27 @@ python scripts/run_case.py --case data/cases/synth_kattegat_spill
 **Known limitation, reported not tuned away.** The background-window parameter in Stage 1 is genuinely sensitive: a window smaller than a broad dark feature sits inside it and the feature vanishes. Measured — 20 km and 40 km miss the calm pocket entirely; 60 km finds it at 257 km²; 90 km over-merges it to 1,104 km². 60 km is defensible physically (low-wind regions are synoptic-scale, slicks are not), but the sensitivity is a real weakness of threshold-based segmentation and one more reason the real-data path uses a trained model.
 
 **200 tests passing** (27 new). One significant finding: **P-19**, a classifier that scored 100% by learning a shortcut, now shipped with a degeneracy warning attached to its own metrics.
+
+### Phase 6 completion note — 7 Sep 2026
+
+**The pipeline has a face, and after this phase the project has no network dependency at all.**
+
+```bash
+uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+```
+
+The export stage turns `out/` into a 2.5 MB static bundle: scene PNG capped at 1100 px, coastline vectorised from the case's own land mask, posterior density as weighted cells, ~900 backward particle trails.
+
+**Verified rendering in a real browser**, not assumed: SAR scene with speckle, coastline, the 219 km² low-wind pocket outlined as *undetermined*, the 89 km² confirmed oil, the rejected look-alike, posterior density, animated backward trails, candidate tracks, and the dark-vessel row at 27.2%.
+
+| Requirement | Status |
+|---|---|
+| FR-17 map with classification **including rejected patches and their reason** | ✅ |
+| FR-18 animated particle playback | ✅ backward proposal, labelled as such |
+| FR-19 posterior with credible regions | ✅ 50% and 95%, areas in km² |
+| FR-20 ranked candidates + per-factor evidence + dark row | ✅ |
+| NFR-1 full offline operation | ✅ deck.gl vendored and committed |
+
+`serve()` refuses any non-loopback host in code — no auth layer plus vessel attribution output means it must never be reachable from a conference network.
+
+**223 tests passing** (23 new). One significant finding: **P-20**, a missing SAR backdrop caused by three stacked defects, none of which raised an error.

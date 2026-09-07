@@ -26,8 +26,11 @@ models/
 # web/vendor/, silently excluding real source from the repo.
 out/
 /eval/
+# deck.gl IS committed: it is a demo-day dependency and re-downloading it
+# on the day is exactly the risk NFR-1 exists to remove.
 web/vendor/*
 !web/vendor/.gitkeep
+!web/vendor/*.min.js
 
 # Python
 .venv/

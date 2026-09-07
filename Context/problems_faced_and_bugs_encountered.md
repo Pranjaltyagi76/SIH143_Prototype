@@ -171,6 +171,29 @@ Logged in advance so they are recognised in seconds rather than debugged for hou
 
 ---
 
+### [P-20] The SAR backdrop never appeared, and nothing reported an error
+**2026-09-07** · Phase 6 · **Severity:** major
+
+**Symptom** — The interface rendered detections, posterior, tracks and the animation correctly, but the SAR scene behind them was simply absent. No console error, no failed request, no missing layer. `deckgl.props.layers` listed `scene` every time.
+
+**Root cause** — Three separate things, found in order.
+
+*deck.gl is not published on cdnjs at all.* The page loaded it from `cdnjs.cloudflare.com/ajax/libs/deck.gl/…`, which returns 404 for **every** version — the library metadata endpoint reports "Library not found". The page's own guard caught this and said so, which is the only reason it was not a silent blank map.
+
+*`HeatmapLayer` was broken on this build.* It emitted a wall of luma.gl "unknown binding" warnings and painted over the viewport. Replaced with overlapping translucent `ScatterplotLayer` discs, which are dumber, render correctly, and read the same.
+
+*And the actual cause:* `BitmapLayer` was given the image as a **URL string**, so it began an asynchronous fetch-and-decode each time the layer was constructed. The particle animation reconstructs layers roughly 17 times a second, so the upload was restarted before it ever completed. Clearing the interval made the scene appear instantly — that was the diagnostic that isolated it.
+
+**Fix** — Vendored deck.gl into `web/vendor/` and committed it, decoded the scene bitmap **once** per case into an `Image` and handed deck.gl the decoded object rather than a URL, and swapped the heatmap for discs.
+
+A wrong turn worth recording: the first attempt cached layer *instances* and reused them across frames. That did not help and is a deck.gl anti-pattern — layers are immutable descriptors diffed by `id`, so reusing instances is meaningless at best. Reverted to fresh instances per frame, which is correct once the async load is gone.
+
+**Lesson** — **A missing visual element produces no stack trace.** Three defects stacked up here and not one of them raised: a 404 on a CDN that does not host the library, a layer type quietly painting over everything, and an async upload perpetually restarting. The only reliable way through was bisection — render the layer alone, then stop the animation — rather than reading code.
+
+Also: the vendoring was scheduled as a Day 12 hardening task. Doing it on the day the dependency was introduced turned an NFR-1 compliance chore into the fix for an actual bug, and removed the project's last network dependency two weeks early.
+
+---
+
 ### [P-19] The look-alike classifier scored perfectly by learning a shortcut
 **2026-09-06** · Phase 5 · **Severity:** major (a metric that would have been quoted)
 
