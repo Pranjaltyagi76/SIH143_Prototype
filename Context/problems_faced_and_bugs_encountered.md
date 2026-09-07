@@ -171,6 +171,28 @@ Logged in advance so they are recognised in seconds rather than debugged for hou
 
 ---
 
+### [P-23] The Zenodo dataset cannot be used for end-to-end cases
+**2026-09-07** · Phase 8 · **Severity:** major (an architectural finding, not a defect)
+
+**Symptom** — The problem statement names the Zenodo Sentinel-1 oil spill dataset as our data source. The plan assumed it would carry us end to end. Reading the record's own format description shows it cannot.
+
+**Root cause** — The dataset is **image crops**: 2048×2048×2 TIFF tiles of σ⁰ in dB with matching masks, organised as `Oil` / `Lookalike` / `No oil`. Nothing in the record promises a CRS or a geotransform, and without geolocation a tile **cannot be drifted, cannot be matched to a current field, and cannot be correlated with AIS**. Three of the four pipeline stages are unavailable on it.
+
+**Fix** — Split the sourcing explicitly in code rather than discovering it at integration time:
+
+| Source | Unlocks |
+|---|---|
+| Zenodo tiles | Segmentation training + IoU benchmarking against the published ~0.54 **only** |
+| CDSE GRD + CMEMS + ERA5 + AIS | End-to-end cases; all four needed together |
+
+`zenodo.verify_dataset()` reports whether tiles carry a CRS, so the assumption is tested against the real archives rather than trusted. It was always implicit in the design — Zenodo listed under "Training", CDSE under "Inference" — but nothing in the code said so, and a plan that only lives in a table gets forgotten.
+
+**Lesson** — **Read the data's format description before planning around it.** Five minutes on the Zenodo record answered a question that would otherwise have surfaced after a 96 GB download and a day of confusion. The record also gave the exact band layout, class directories and licence, which is what let the adapter be written correctly without the bytes.
+
+Second lesson: the archives total **96 GB**. "Free" and "small" are different properties, and the plan had quietly conflated them.
+
+---
+
 ### [P-22] The 95% region is overconfident, and the harness said which half is wrong
 **2026-09-07** · Phase 7 · **Severity:** major (a real limitation, reported not fixed)
 

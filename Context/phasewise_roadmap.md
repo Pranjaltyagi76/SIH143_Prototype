@@ -448,3 +448,35 @@ Every trial runs the whole chain — inject, detect, invert, attribute — so th
 12 of 24 trials completed. Breakdown: 5 no oil confirmed by the detector, 4 no AIS track spanning the discharge window (a harness limitation — synthetic tracks are short), 2 slick below detectable size, 1 too few particles surviving. Excluding the harness artefact, 12/20 = 60%.
 
 **239 tests passing** (16 new). Two bugs found by the harness *before* it produced a single metric: **P-21** (slick brightness scaled with Monte Carlo particle count) and a thin slick being consumed entirely by the boundary annulus — the signature shape of a continuous discharge.
+
+### Phase 8 completion note — 7 Sep 2026
+
+**Adapters written and tested against the published formats. No downloads performed — and that is a reported state, not a silent one.**
+
+```bash
+python scripts/fetch_real_data.py --check      # downloads nothing
+```
+
+| Source | Reachable here | Credentials | Status |
+|---|---|---|---|
+| Zenodo SAR oil spill | ✅ | none needed | **96.5 GB** across 3 parts — not fetched |
+| Copernicus Data Space | ✅ | ❌ none set | adapter written, unverified |
+| CMEMS SMOC | ✅ | ❌ none set | adapter written, unverified |
+| ERA5 / CDS | ✅ | ❌ none set | adapter written, unverified |
+| Danish DMA AIS | ❌ **unreachable** | none needed | adapter written, unverified |
+
+#### The architectural finding
+
+**The Zenodo dataset cannot carry an end-to-end case.** It is 2048×2048×2 image crops with masks — no CRS promised, so a tile cannot be drifted, matched to a current field, or correlated with AIS. It trains and benchmarks the segmenter; nothing more. End-to-end needs CDSE GRD + CMEMS + ERA5 + AIS *together*. Recorded as P-23 and now enforced by `zenodo.verify_dataset()`.
+
+#### What the adapters defend against
+
+`normalise()` handles the four ways real gridded products break silently: ERA5's descending latitude, CMEMS's depth axis on a surface product, `valid_time` vs `time`, and 0–360 longitude. Each produces plausible wrong trajectories rather than an error.
+
+One real weakness caught by its own test: the scene guard accepted **linear σ⁰ as dB**, because linear values (0.001–1.0) sit entirely inside any plausible dB range. Now discriminated by sign and spread.
+
+**265 tests passing** (26 new).
+
+#### Blocking Phase 8 completion
+
+Three registrations (all free) and a decision about 96 GB. Until then the pipeline runs on synthetic cases, which is what Phases 1–7 were built to make possible.
