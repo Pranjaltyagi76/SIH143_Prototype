@@ -354,3 +354,31 @@ The dark hypothesis at 41% against a top candidate at 8.6% is the honest answer 
 Behavioural priors are five interpretable factors, each individually visible with a plain-language note. The AIS-gap factor is measured against the local baseline gap rate — in a poorly covered area an absolute threshold would flag every vessel present.
 
 **173 tests passing** (32 new). One critical finding: **P-18**, a timestamp-resolution error that silently discarded 99.6% of the AIS while reporting success.
+
+### Phase 5 completion note — 6 Sep 2026
+
+**The vertical slice is closed. A raw SAR scene now goes to a ranked vessel list in 12 s.**
+
+```
+python scripts/inject_case.py --case synth_kattegat
+python scripts/run_case.py --case data/cases/synth_kattegat_spill
+```
+
+| Stage | Result |
+|---|---|
+| Detection | 4 patches → 1 oil (89 km² vs 87.7 km² truth), 1 look-alike, **2 abstentions** |
+| Inversion | 95% region 1,188 km², t0 width 26 h |
+| Attribution | 179 vessels → 102 prefiltered → 2 reported; **true culprit rank 2** |
+| Runtime | 4.3 s + 5.4 s + 3.1 s = **12.8 s**, against a 60 s budget |
+
+**The demo beat works and is real, not staged.** The 219 km² low-wind pocket is found by the segmenter and then refused by the gate with its wind speed stated as the reason — and that patch exists because the scene's backscatter is generated from the same wind field the gate reads, not because it was painted on.
+
+**Two scoping decisions, both recorded rather than hidden.**
+
+*Stage 1 is classical, not the U-Net.* Our synthetic sigma-0 comes from a smooth analytic wind field with Gamma speckle; a CNN would reach IoU near 1.0 on it and the number would be meaningless. The U-Net remains the real-data path (Phase 5b/8), trained on Zenodo with a geographic holdout and reported against the published ~0.54 benchmark. Both emit the same label raster, so nothing downstream changes.
+
+*Attribution degrades when fed the detector's mask rather than the true particle cloud* — the culprit drops from rank 1 to rank 2. That is the honest end-to-end number, and mask error propagating into attribution is a real property of the system worth stating.
+
+**Known limitation, reported not tuned away.** The background-window parameter in Stage 1 is genuinely sensitive: a window smaller than a broad dark feature sits inside it and the feature vanishes. Measured — 20 km and 40 km miss the calm pocket entirely; 60 km finds it at 257 km²; 90 km over-merges it to 1,104 km². 60 km is defensible physically (low-wind regions are synoptic-scale, slicks are not), but the sensitivity is a real weakness of threshold-based segmentation and one more reason the real-data path uses a trained model.
+
+**200 tests passing** (27 new). One significant finding: **P-19**, a classifier that scored 100% by learning a shortcut, now shipped with a degeneracy warning attached to its own metrics.

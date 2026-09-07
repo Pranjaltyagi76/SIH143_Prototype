@@ -71,7 +71,25 @@ def stage_detect(ctx: RunContext) -> None:
     physics gate's job. The gate is a hard override -- outside 3-12 m/s the
     result is 'undetermined' regardless of what the classifier produced.
     """
-    raise NotImplementedError("Phase 5: detection (M1)")
+    import json
+
+    from src.attribution import clean_and_reconstruct, load_ais
+    from src.detect import detect
+    from src.ingest.case_builder import load_forcing_bundle
+    from src.transport import ForcingField
+
+    field = ForcingField.from_case(ctx.case_dir, load_forcing_bundle(ctx.case_dir))
+    ais_path = ctx.case_dir / "ais" / "tracks.parquet"
+    tracks = None
+    if ais_path.is_file():
+        tracks, _ = clean_and_reconstruct(load_ais(ais_path))
+
+    detections, diag = detect(
+        ctx.case_dir, field, ctx.case.t_obs, ctx.case.case_id, tracks=tracks
+    )
+    body = ",\n".join(d.model_dump_json(indent=2) for d in detections)
+    (ctx.out_dir / "detections.json").write_text(f"[\n{body}\n]\n", encoding="utf-8")
+    log_event(ctx, {"stage": "detect", **diag.__dict__})
 
 
 def stage_invert(ctx: RunContext) -> None:
@@ -84,7 +102,35 @@ def stage_invert(ctx: RunContext) -> None:
 
     Emits SourcePosterior plus the density .npz.
     """
-    raise NotImplementedError("Phase 3: inversion (M2)")
+    from src.contracts import SlickDetection
+    from src.ingest.case_builder import load_forcing_bundle
+    from src.inversion import InversionConfig, ObservedMask, invert
+    from src.transport import ForcingField
+
+    raw = json.loads((ctx.out_dir / "detections.json").read_text(encoding="utf-8"))
+    detections = [SlickDetection.model_validate(d) for d in raw]
+    oil = [d for d in detections if d.is_actionable]
+    if not oil:
+        # Not a failure. A scene where every dark patch was a look-alike or fell
+        # outside the detectability window has nothing to invert, and saying so
+        # is the correct output.
+        (ctx.out_dir / "posterior.json").write_text(
+            json.dumps({"case_id": ctx.case.case_id, "detections_actionable": 0,
+                        "note": "no confirmed oil in this scene; nothing to invert"},
+                       indent=2), encoding="utf-8")
+        return
+
+    field = ForcingField.from_case(ctx.case_dir, load_forcing_bundle(ctx.case_dir))
+    target = max(oil, key=lambda d: d.geometry.area_km2)
+    mask = ObservedMask.from_detection(target, field)
+    posterior, diag = invert(
+        field, mask, ctx.case.t_obs, ctx.case.case_id, target.detection_id,
+        InversionConfig(seed=ctx.seed), out_dir=ctx.out_dir,
+    )
+    (ctx.out_dir / "posterior.json").write_text(
+        posterior.model_dump_json(indent=2), encoding="utf-8")
+    log_event(ctx, {"stage": "invert", **{k: v for k, v in diag.__dict__.items()
+                                          if isinstance(v, (int, float, str, bool))}})
 
 
 def stage_forecast(ctx: RunContext) -> None:
@@ -105,7 +151,37 @@ def stage_attribute(ctx: RunContext) -> None:
 
     Emits RankedCandidates.
     """
-    raise NotImplementedError("Phase 4: attribution (M4)")
+    from src.attribution import AttributionConfig, attribute, clean_and_reconstruct, load_ais
+    from src.contracts import SlickDetection, SourcePosterior
+    from src.ingest.case_builder import load_forcing_bundle
+    from src.inversion import ObservedMask
+    from src.transport import ForcingField
+
+    raw_post = json.loads((ctx.out_dir / "posterior.json").read_text(encoding="utf-8"))
+    if "credible_regions" not in raw_post:
+        print("           no posterior to attribute against; skipping")
+        return
+    posterior = SourcePosterior.model_validate(raw_post)
+
+    raw = json.loads((ctx.out_dir / "detections.json").read_text(encoding="utf-8"))
+    target = next(
+        d for d in (SlickDetection.model_validate(x) for x in raw)
+        if d.detection_id == posterior.detection_id
+    )
+
+    field = ForcingField.from_case(ctx.case_dir, load_forcing_bundle(ctx.case_dir))
+    mask = ObservedMask.from_detection(target, field)
+    tracks, cleaning = clean_and_reconstruct(load_ais(ctx.case_dir / "ais" / "tracks.parquet"))
+
+    ranked, diag = attribute(
+        field, mask, posterior, tracks, ctx.case.t_obs, ctx.case.case_id,
+        AttributionConfig(seed=ctx.seed), cleaning=cleaning.as_dict(),
+        vessels_in_window=cleaning.vessels_out,
+    )
+    (ctx.out_dir / "candidates.json").write_text(
+        ranked.model_dump_json(indent=2), encoding="utf-8")
+    log_event(ctx, {"stage": "attribute", **{k: v for k, v in diag.__dict__.items()
+                                             if isinstance(v, (int, float, str, bool))}})
 
 
 def stage_particles(ctx: RunContext) -> None:
@@ -193,6 +269,12 @@ def run(ctx: RunContext, only: str | None) -> int:
             stage.run(ctx)
         except NotImplementedError as exc:
             print(f"{label} STUB - {exc}")
+            failures += 1
+            continue
+        except FileNotFoundError as exc:
+            # A Case missing an input should say which file, not emit a
+            # traceback. This runs on a stage in front of judges.
+            print(f"{label} MISSING INPUT - {exc}")
             failures += 1
             continue
         elapsed = time.perf_counter() - started

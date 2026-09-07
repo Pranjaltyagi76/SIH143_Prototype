@@ -33,9 +33,17 @@ def test_case_folder_has_the_standard_layout(case_dir: Path):
         assert (case_dir / sub).is_dir(), f"missing {sub}/"
 
 
-def test_stub_run_reports_failure_not_silence(case_dir: Path):
-    """An unimplemented stage must be loudly visible, never a silent no-op."""
+def test_stub_run_reports_failure_not_silence(case_dir: Path, capsys):
+    """A stage that cannot run must be loudly visible, never a silent no-op.
+
+    The fixture case carries a manifest but no scene, forcing or AIS files, so
+    the implemented stages hit missing inputs and the unimplemented ones report
+    as stubs. Both must surface as a readable line and a non-zero exit -- this
+    runs on a stage in front of judges, where a traceback is not an option.
+    """
     assert main(["--case", str(case_dir)]) == 1
+    out = capsys.readouterr().out
+    assert "MISSING INPUT" in out or "STUB" in out
 
 
 def test_fixtures_mode_populates_out(case_dir: Path):

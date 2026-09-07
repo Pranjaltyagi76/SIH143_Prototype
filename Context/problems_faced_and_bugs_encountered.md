@@ -171,6 +171,27 @@ Logged in advance so they are recognised in seconds rather than debugged for hou
 
 ---
 
+### [P-19] The look-alike classifier scored perfectly by learning a shortcut
+**2026-09-06** · Phase 5 · **Severity:** major (a metric that would have been quoted)
+
+**Symptom** — The trained LightGBM gate reported **100% in-domain accuracy, 0.000 false-positive rate, and 94% on a cross-region holdout.** Excellent numbers for the hardest problem in SAR oil detection, and exactly what the design hopes for.
+
+**Root cause** — The feature-importance table gave it away. `wind_speed_ms` carried **89.6% of total gain**, `damping_ratio_db` most of the rest, and **11 of 14 features carried none at all.** Every shape and edge feature the design leans on — edge-gradient ratio, solidity, elongation, complexity — contributed exactly zero.
+
+The reason is an artefact of the synthetic world. Injected slicks are seeded along vessel tracks in mid-domain where the wind is ~7 m/s, while the segmenter's false positives cluster at the *rim of the calm pocket*, where wind is 3–4 m/s — just inside the gate window. Wind speed therefore separates the two classes almost perfectly, and the classifier never had to learn anything harder. On real SAR, oil and look-alikes both occur across the whole wind window and no such shortcut exists.
+
+Worth noting the shortcut is not *wrong* — low wind genuinely does raise the odds of an artefact, and the design lists wind as feature #1 deliberately. The problem is that it left nothing for the other thirteen features to do, so the numbers say nothing about the discrimination we actually claim.
+
+**Fix** — The metric was not "corrected"; it was qualified. Added a degeneracy check to `train_gate.py` that prints a **DEGENERATE MODEL WARNING** whenever one feature exceeds 70% of gain or fewer than four features contribute, stating in the output that the accuracy figures describe a shortcut and must not be quoted as evidence the shape features work. The model is still shipped — it does the job on synthetic scenes, giving zero false positives on both clean regions — but its reported performance now carries its own health warning.
+
+**Lesson** — **A number that is better than the state of the art is a bug report, not a result.** Published SOTA for look-alike discrimination is nowhere near 100%, so a student prototype reaching it on the first try meant the task had been made easy, not that the method was good.
+
+The general form: when a model performs implausibly well, *read the feature importances before believing the accuracy*. The importance table diagnosed this in one glance; the confusion matrix never would have.
+
+And the honest consequence, which goes on the slide: **look-alike discrimination cannot be validated on synthetic scenes.** It needs the Zenodo and Krestenitis data, where the classes genuinely overlap. Until then we report the physics gate — which is a rule, not a learned thing, and needs no validation set — and say plainly that the learned half is unproven.
+
+---
+
 ### [P-18] A timestamp-resolution error silently deleted 99.6% of the AIS
 **2026-09-06** · Phase 4 · **Severity:** critical
 
