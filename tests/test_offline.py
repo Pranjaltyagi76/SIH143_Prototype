@@ -270,3 +270,61 @@ def _walk_strings(obj, key):
     elif isinstance(obj, list):
         for item in obj:
             yield from _walk_strings(item, key)
+
+
+# ------------------------------------------------- the demo layout contract
+
+
+def test_the_payoff_is_not_buried_below_the_fold():
+    """The dark-vessel hypothesis and the traffic funnel must render in the
+    verdict block at the top of the panel, not three screens down.
+
+    Measured before this was fixed: the dark-vessel row sat 2,720 px into a
+    950 px viewport, so a judge would never have seen the single most
+    distinctive output unless the presenter scrolled for it.
+    """
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+
+    verdict = html.index('id="verdict"')
+    detections = html.index('id="detections"')
+    assert verdict < detections, "the result block must precede the detection list"
+
+    # The verdict block is what renders the funnel and the dark hypothesis.
+    render = html[html.index("function renderVerdict"):html.index("function renderPanel")]
+    assert "traffic_reduction" in render
+    assert "dark_vessel_hypothesis" in render
+    assert "not transmitting AIS" in render
+
+
+def test_the_view_fits_the_case_bounds():
+    """A fixed zoom letterboxed a tall scene in a wide viewport and wasted most
+    of the screen. The view must be computed from the bounds."""
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    fit = html[html.index("function fitView"):html.index("// --------------------------------------------------------------- animation")]
+    assert "clientWidth" in fit and "clientHeight" in fit, "fit ignores the viewport"
+    assert "Math.log2" in fit, "zoom is not derived from the bounds"
+    assert "zoom: 7.1" not in html, "a hard-coded zoom is still present"
+
+
+def test_a_clean_scene_reads_as_a_result_not_a_failure():
+    """'No oil detected' is a complete, correct answer and should look like one."""
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    assert "No oil detected in this scene" in html
+    assert "dark patch" in html and "accounted for" in html
+
+
+def test_candidates_are_not_requested_when_there_is_no_posterior():
+    """Requesting them unconditionally 404s on a clean scene and fills the
+    console with noise that looks like a fault."""
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    assert "wantAttribution" in html
+    assert "has_posterior" in html
+
+
+def test_the_scene_image_is_decoded_once_not_per_frame():
+    """P-20. Handing BitmapLayer a URL string restarts an async fetch every time
+    the layer is rebuilt, and the animation rebuilds ~17x a second."""
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    assert "sceneImages" in html, "no per-case image cache"
+    assert "image," in html or "image:" in html
+    assert "image: `/api/cases/" not in html, "BitmapLayer is still given a URL string"

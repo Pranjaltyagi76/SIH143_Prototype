@@ -11,57 +11,84 @@
 <style>
   :root{
     --bg:#0d1117; --panel:#141b25; --line:#232c39; --ink:#e6edf3; --dim:#8b97a7;
-    --oil:#f0883e; --lookalike:#6e7b8f; --undet:#4d9fd6; --cand:#e5534b;
-    --ok:#3fb950; --accent:#58a6ff;
+    --oil:#f0883e; --lookalike:#d6dde5; --undet:#4d9fd6; --cand:#e5534b;
+    --dark:#8957e5; --ok:#3fb950; --accent:#58a6ff;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
     font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
   #app{display:flex;height:100%}
-  #panel{width:390px;min-width:390px;height:100%;overflow-y:auto;
-    background:var(--panel);border-right:1px solid var(--line);padding:16px}
+  #panel{width:400px;min-width:400px;height:100%;overflow-y:auto;
+    background:var(--panel);border-right:1px solid var(--line);padding:14px}
   #map{position:relative;flex:1}
   #deck-canvas{width:100%;height:100%}
   h1{font-size:15px;margin:0 0 2px;letter-spacing:-.2px}
-  h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);
-    margin:22px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--line)}
-  .sub{color:var(--dim);font-size:11px;margin-bottom:14px}
-  select,button{background:#1b2430;color:var(--ink);border:1px solid var(--line);
+  h2{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);
+    margin:18px 0 7px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+  .sub{color:var(--dim);font-size:11px;margin-bottom:10px}
+  select{background:#1b2430;color:var(--ink);border:1px solid var(--line);
     border-radius:6px;padding:7px 10px;font:inherit;font-size:12px;width:100%}
-  button{cursor:pointer;width:auto}
+  button{background:#1b2430;color:var(--ink);border:1px solid var(--line);
+    border-radius:6px;padding:6px 11px;font:inherit;font-size:12px;cursor:pointer}
   button:hover{border-color:var(--accent)}
-  .row{display:flex;justify-content:space-between;gap:10px;padding:3px 0}
-  .row .k{color:var(--dim)}
-  .row .v{font-variant-numeric:tabular-nums;text-align:right}
-  .card{border:1px solid var(--line);border-radius:7px;padding:10px;margin-bottom:8px;
-    background:#111823;cursor:pointer}
-  .card:hover{border-color:var(--accent)}
-  .card.sel{border-color:var(--accent);background:#152030}
-  .tag{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
-    padding:2px 7px;border-radius:4px;font-weight:600}
+  .row{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
+  .row .k{color:var(--dim)} .row .v{font-variant-numeric:tabular-nums;text-align:right}
+
+  /* ---- the verdict block: everything that matters, above the fold ---- */
+  #verdict{border:1px solid var(--line);border-radius:8px;background:#111823;
+    padding:12px;margin-bottom:6px}
+  #verdict.none{border-color:#2c5c3a;background:#101c15}
+  .funnel{display:flex;align-items:center;justify-content:center;gap:8px;
+    font-variant-numeric:tabular-nums;margin-bottom:11px;padding-bottom:10px;
+    border-bottom:1px solid var(--line)}
+  .funnel b{font-size:19px;color:var(--ink)}
+  .funnel s{text-decoration:none;color:var(--dim);font-size:15px}
+  .funnel em{font-style:normal;color:var(--dim);font-size:10px;display:block;
+    text-align:center;letter-spacing:.04em;text-transform:uppercase}
+  .lead{display:grid;grid-template-columns:52px 1fr auto;gap:9px;align-items:center;
+    padding:5px 0;cursor:pointer}
+  .lead:hover .name{color:var(--accent)}
+  .lead .pct{font-variant-numeric:tabular-nums;font-size:12px;text-align:right}
+  .lead .name{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lead .bar{height:7px;border-radius:3px;background:#1e2733;overflow:hidden}
+  .lead .bar > i{display:block;height:100%}
+  .lead.dark .name{color:#c9a6ff;font-weight:600}
+  .lead.sel .name{color:var(--accent)}
+  .verdict-note{font-size:11px;color:var(--dim);margin-top:9px;padding-top:9px;
+    border-top:1px solid var(--line)}
+  .big-ok{font-size:14px;color:var(--ok);font-weight:600;margin-bottom:5px}
+
+  /* ---- collapsed detection rows ---- */
+  .det{border:1px solid var(--line);border-radius:6px;margin-bottom:5px;
+    background:#111823;overflow:hidden}
+  .det > summary{list-style:none;cursor:pointer;padding:7px 9px;display:grid;
+    grid-template-columns:auto 1fr auto;gap:9px;align-items:center}
+  .det > summary::-webkit-details-marker{display:none}
+  .det[open]{border-color:var(--accent)}
+  .det .body{padding:0 9px 9px;color:var(--dim);font-size:11px}
+  .tag{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;
+    padding:2px 6px;border-radius:4px;font-weight:700;white-space:nowrap}
   .tag.oil{background:rgba(240,136,62,.18);color:var(--oil)}
-  .tag.look_alike{background:rgba(110,123,143,.2);color:#9aa7b8}
+  .tag.look_alike{background:rgba(214,221,229,.14);color:#d6dde5}
   .tag.undetermined{background:rgba(77,159,214,.16);color:var(--undet)}
-  .reason{color:var(--dim);font-size:11px;margin-top:7px}
-  .bar{height:5px;background:#1e2733;border-radius:3px;overflow:hidden;margin-top:6px}
-  .bar > i{display:block;height:100%;background:var(--cand)}
-  .dark-row{border:1px dashed #6a4b8a;background:rgba(106,75,138,.12)}
-  .factor{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);
-    padding:2px 0}
+  .meta{font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--dim);text-align:right}
+  .factor{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);padding:1px 0}
   .factor b{color:var(--ink);font-variant-numeric:tabular-nums}
   .note{font-size:11px;color:var(--dim);border-left:2px solid var(--line);
-    padding-left:9px;margin-top:8px}
+    padding-left:9px;margin-top:7px}
   .warn{border-left-color:var(--oil);color:#c8a27a}
+
   #legend{position:absolute;left:14px;bottom:14px;background:rgba(13,17,23,.92);
-    border:1px solid var(--line);border-radius:7px;padding:10px 12px;font-size:11px}
-  #legend div{display:flex;align-items:center;gap:7px;padding:2px 0}
+    border:1px solid var(--line);border-radius:7px;padding:9px 11px;font-size:11px}
+  #legend div{display:flex;align-items:center;gap:7px;padding:1.5px 0}
   .sw{width:11px;height:11px;border-radius:2px;display:inline-block}
   #timebar{position:absolute;right:14px;bottom:14px;background:rgba(13,17,23,.92);
-    border:1px solid var(--line);border-radius:7px;padding:9px 12px;font-size:11px;
+    border:1px solid var(--line);border-radius:7px;padding:8px 11px;font-size:11px;
     display:flex;align-items:center;gap:10px}
-  #disclaimer{position:absolute;top:14px;right:14px;max-width:340px;
-    background:rgba(13,17,23,.92);border:1px solid var(--line);border-left:3px solid var(--oil);
-    border-radius:7px;padding:10px 12px;font-size:11px;color:var(--dim)}
+  #disclaimer{position:absolute;top:14px;right:14px;max-width:330px;
+    background:rgba(13,17,23,.92);border:1px solid var(--line);
+    border-left:3px solid var(--oil);border-radius:7px;padding:9px 11px;
+    font-size:11px;color:var(--dim)}
   #loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim)}
 </style>
 </head>
@@ -71,18 +98,17 @@
     <h1>Oil spill detection &amp; vessel attribution</h1>
     <div class="sub">Sentinel-1 SAR &middot; Lagrangian source inversion &middot; AIS correlation</div>
     <select id="case-select"></select>
-    <div id="case-meta"></div>
 
-    <h2>Detections</h2>
+    <h2>Result</h2>
+    <div id="verdict"></div>
+
+    <h2>Dark patches examined</h2>
     <div id="detections"></div>
 
     <h2>Source inversion</h2>
     <div id="posterior"></div>
 
-    <h2>Candidate vessels</h2>
-    <div id="candidates"></div>
-
-    <h2>Stated assumptions</h2>
+    <h2>Case &amp; stated assumptions</h2>
     <div id="assumptions"></div>
   </aside>
 
@@ -93,7 +119,7 @@
       Not a determination of responsibility.</div>
     <div id="legend">
       <div><span class="sw" style="background:#f0883e"></span> confirmed oil</div>
-      <div><span class="sw" style="background:#6e7b8f"></span> look-alike, rejected</div>
+      <div><span class="sw" style="background:#d6dde5"></span> look-alike, rejected</div>
       <div><span class="sw" style="background:#4d9fd6"></span> undetermined &mdash; outside wind window</div>
       <div><span class="sw" style="background:#8957e5"></span> source posterior</div>
       <div><span class="sw" style="background:#e5534b"></span> candidate track</div>
@@ -107,48 +133,63 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const fmt = (n, d = 0) => Number(n).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d});
+const fmt = (n, d = 0) => Number(n).toLocaleString(undefined,
+  {minimumFractionDigits: d, maximumFractionDigits: d});
 
 const CLASS_COLOR = {
   oil:          [240, 136,  62],
-  look_alike:   [110, 123, 143],
+  look_alike:   [214, 221, 229],
   undetermined: [ 77, 159, 214],
 };
+const CLASS_LABEL = {oil: 'oil', look_alike: 'look-alike', undetermined: 'undetermined'};
 
 let deckgl = null;
-let state = {caseId: null, data: null, frame: 0, selectedVessel: null, sceneImage: null};
+let state = {caseId: null, data: null, frame: 0, selectedVessel: null};
 
-// ---------------------------------------------------------------- data load
+// Decoded scene images, kept per case. Handing BitmapLayer a URL string makes it
+// restart an async fetch-and-decode every time the layer is rebuilt -- and the
+// animation rebuilds layers ~17x a second, so the upload never completed and the
+// backdrop never appeared (P-20). Decode once, pass the Image object.
+const sceneImages = {};
 
 async function getJSON(url) {
   const r = await fetch(url);
-  if (!r.ok) return null;
-  return r.json();
+  return r.ok ? r.json() : null;
+}
+
+function loadImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
 }
 
 async function loadCase(caseId) {
   state.caseId = caseId;
   $('loading').style.display = 'grid';
   const base = `/api/cases/${caseId}`;
-  const [manifest, detections, posterior, candidates, particles, field, coastline, truth] =
-    await Promise.all([
-      getJSON(`${base}/manifest`), getJSON(`${base}/detections`), getJSON(`${base}/posterior`),
-      getJSON(`${base}/candidates`), getJSON(`${base}/particles`), getJSON(`${base}/posterior-field`),
-      getJSON(`${base}/coastline`), getJSON(`${base}/truth`),
-    ]);
-  state.data = {manifest, detections, posterior, candidates, particles, field, coastline, truth};
 
-  // Preload the scene bitmap as a decoded image rather than handing deck.gl a
-  // URL. With a URL, BitmapLayer starts an asynchronous fetch-and-upload each
-  // time the layer is reconstructed -- and the animation reconstructs layers
-  // ~17 times a second, so the upload never completed and the SAR backdrop
-  // silently never appeared. Decoding once removes the async step entirely.
-  state.sceneImage = await new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = `/api/cases/${caseId}/scene.png`;
-  });
+  const manifest = await getJSON(`${base}/manifest`);
+  // Only ask for candidates when there is a posterior to attribute against.
+  // Requesting them unconditionally 404s on a clean scene and fills the console
+  // with noise that looks like a fault.
+  const wantAttribution = manifest && manifest.has_posterior;
+
+  const [detections, posterior, candidates, particles, field, coastline, truth, image] =
+    await Promise.all([
+      getJSON(`${base}/detections`), getJSON(`${base}/posterior`),
+      wantAttribution ? getJSON(`${base}/candidates`) : Promise.resolve(null),
+      getJSON(`${base}/particles`), getJSON(`${base}/posterior-field`),
+      getJSON(`${base}/coastline`), getJSON(`${base}/truth`),
+      sceneImages[caseId] ? Promise.resolve(sceneImages[caseId])
+                          : loadImage(`${base}/scene.png`),
+    ]);
+  sceneImages[caseId] = image;
+
+  state.data = {manifest, detections, posterior, candidates, particles,
+                field, coastline, truth, image};
   state.frame = 0;
   state.selectedVessel = null;
   renderPanel();
@@ -160,32 +201,90 @@ async function loadCase(caseId) {
 
 // ------------------------------------------------------------------- panel
 
+function renderVerdict() {
+  const {candidates, detections, truth} = state.data;
+  const el = $('verdict');
+
+  if (!candidates || !candidates.candidates) {
+    // Not a failure. A scene where every dark patch was a look-alike or fell
+    // outside the detectability window is a correct, complete answer, and it
+    // should read as one rather than as a blank panel.
+    const n = (detections || []).length;
+    const abst = (detections || []).filter(d => d.abstained).length;
+    const look = (detections || []).filter(d => d.classification === 'look_alike').length;
+    el.className = 'none';
+    el.innerHTML = `
+      <div class="big-ok">&#10003; No oil detected in this scene</div>
+      <div style="color:var(--dim);font-size:11.5px">
+        ${n} dark patch${n === 1 ? '' : 'es'} examined and all accounted for &mdash;
+        ${abst} outside the wind detectability window,
+        ${look} classified as look-alike${look === 1 ? '' : 's'}.
+      </div>
+      <div class="verdict-note">Nothing to invert and nothing to attribute.
+        Reporting that plainly is the correct output.</div>`;
+    return;
+  }
+
+  const tr = candidates.traffic_reduction;
+  const dark = candidates.dark_vessel_hypothesis;
+  const rows = candidates.candidates.slice(0, 3).map(c => ({
+    key: c.mmsi, pct: c.posterior_probability, cls: '',
+    colour: (truth && truth.available && c.mmsi === truth.culprit_mmsi) ? '#3fb950' : 'var(--cand)',
+    name: `${c.rank}. ${c.vessel_type} &middot; ${c.mmsi}`,
+  }));
+  rows.push({key: '__dark__', pct: dark.posterior_probability, cls: 'dark',
+             colour: 'var(--dark)', name: 'Vessel not transmitting AIS'});
+  rows.sort((a, b) => b.pct - a.pct);
+  const peak = Math.max(...rows.map(r => r.pct), 0.0001);
+
+  el.className = '';
+  el.innerHTML = `
+    <div class="funnel">
+      <span><b>${tr.vessels_in_window}</b><em>in window</em></span>
+      <s>&rarr;</s>
+      <span><b>${tr.after_prefilter}</b><em>after filter</em></span>
+      <s>&rarr;</s>
+      <span><b style="color:var(--oil)">${tr.reported}</b><em>reported</em></span>
+    </div>
+    ${rows.map(r => `
+      <div class="lead ${r.cls} ${state.selectedVessel === r.key ? 'sel' : ''}"
+           data-lead="${r.key}">
+        <span class="pct">${(r.pct * 100).toFixed(1)}%</span>
+        <span class="name">${r.name}</span>
+        <span class="bar" style="width:110px"><i style="width:${(r.pct / peak * 100).toFixed(1)}%;background:${r.colour}"></i></span>
+      </div>`).join('')}
+    ${dark.posterior_probability >= peak ? `
+      <div class="note warn">The most probable explanation is a vessel that was
+        not transmitting AIS. No named candidate outranks it.</div>` : ''}
+    ${truth && truth.available ? `
+      <div class="verdict-note">Ground truth for this injected case:
+        <b>${truth.culprit_mmsi}</b> (${truth.culprit_type}). The pipeline never
+        reads this file.</div>` : ''}`;
+}
+
 function renderPanel() {
-  const {manifest, detections, posterior, candidates, truth} = state.data;
+  const {manifest, detections, posterior, candidates} = state.data;
 
-  $('case-meta').innerHTML = manifest ? `
-    <div class="note">${manifest.description || ''}</div>
-    <div class="row"><span class="k">acquisition</span><span class="v">${manifest.t_obs_utc.replace('T',' ').slice(0,16)}Z</span></div>
-    <div class="row"><span class="k">region</span><span class="v">${manifest.region}</span></div>
-    ${manifest.ais_is_synthetic ? '<div class="note warn"><b>AIS for this case is synthetic</b> and disclosed as such. No free bulk historical AIS source exists for this region; the problem statement permits generated data where real data is unavailable.</div>' : ''}
-  ` : '<div class="note">not exported yet</div>';
+  renderVerdict();
 
-  // --- detections ---
+  // --- detections, collapsed to one line each ---
   $('detections').innerHTML = (detections || []).length === 0
     ? '<div class="note">no dark patches found</div>'
     : detections.map((d, i) => `
-      <div class="card" data-det="${i}">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span class="tag ${d.classification}">${d.classification.replace('_',' ')}</span>
-          <span class="v">${fmt(d.geometry.area_km2)} km&sup2;</span>
+      <details class="det" data-det="${i}">
+        <summary>
+          <span class="tag ${d.classification}">${CLASS_LABEL[d.classification]}</span>
+          <span class="meta" style="text-align:left">${fmt(d.geometry.area_km2)} km&sup2;</span>
+          <span class="meta">${d.environment.wind_speed_ms.toFixed(1)} m/s</span>
+        </summary>
+        <div class="body">
+          ${d.classification_reason}
+          <div class="row" style="margin-top:6px"><span class="k">elongation</span><span class="v">${d.geometry.elongation.toFixed(1)}</span></div>
+          <div class="row"><span class="k">release mode</span><span class="v">${d.release_mode}</span></div>
         </div>
-        <div class="row"><span class="k">10 m wind</span><span class="v">${d.environment.wind_speed_ms.toFixed(1)} m/s</span></div>
-        <div class="row"><span class="k">elongation</span><span class="v">${d.geometry.elongation.toFixed(1)}</span></div>
-        <div class="row"><span class="k">release mode</span><span class="v">${d.release_mode}</span></div>
-        <div class="reason">${d.classification_reason}</div>
-      </div>`).join('');
+      </details>`).join('');
 
-  // --- posterior ---
+  // --- inversion ---
   if (posterior && posterior.credible_regions) {
     const p = posterior;
     const ess = p.effective_sample_size / p.n_particles;
@@ -196,90 +295,53 @@ function renderPanel() {
       <div class="row"><span class="k">lookback</span><span class="v">${fmt(p.lookback_hours)} h</span></div>
       <div class="row"><span class="k">effective sample size</span><span class="v">${fmt(p.effective_sample_size)} / ${fmt(p.n_particles)}</span></div>
       ${ess < 0.01 ? '<div class="note warn">Effective sample size has collapsed. This posterior is Monte&nbsp;Carlo noise and should not be read as a location.</div>' : ''}
-      ${!p.within_operating_envelope ? '<div class="note warn">Lookback exceeds the 72&nbsp;h operating envelope. The envelope is reported but is not operationally useful at this range.</div>' : ''}`;
+      ${!p.within_operating_envelope ? '<div class="note warn">Lookback exceeds the 72&nbsp;h operating envelope.</div>' : ''}`;
   } else {
-    $('posterior').innerHTML = `<div class="note">${(posterior && posterior.note) || 'no confirmed oil in this scene, so there is nothing to invert.'}</div>`;
+    $('posterior').innerHTML = '<div class="note">No confirmed oil, so there is nothing to invert.</div>';
   }
 
-  // --- candidates ---
-  if (candidates && candidates.candidates) {
-    const tr = candidates.traffic_reduction;
-    const dark = candidates.dark_vessel_hypothesis;
-    const shown = candidates.candidates.slice(0, 6);
-    const maxP = Math.max(dark.posterior_probability, ...candidates.candidates.map(c => c.posterior_probability));
-    $('candidates').innerHTML = `
-      <div class="row"><span class="k">vessels in window</span><span class="v">${tr.vessels_in_window}</span></div>
-      <div class="row"><span class="k">after spatio-temporal filter</span><span class="v">${tr.after_prefilter}</span></div>
-      <div class="row"><span class="k">above reporting threshold</span><span class="v">${tr.reported}</span></div>
-      <div style="height:10px"></div>
-      ${shown.map(c => `
-        <div class="card ${state.selectedVessel === c.mmsi ? 'sel' : ''}" data-mmsi="${c.mmsi}">
-          <div style="display:flex;justify-content:space-between">
-            <span><b>${c.rank}.</b> ${c.vessel_type}</span>
-            <span class="v">${(c.posterior_probability * 100).toFixed(1)}%</span>
-          </div>
-          <div class="row"><span class="k">MMSI</span><span class="v">${c.mmsi}</span></div>
-          <div class="bar"><i style="width:${(c.posterior_probability / maxP * 100).toFixed(1)}%"></i></div>
-          <div style="margin-top:8px">
-            ${['ais_gap_factor','speed_anomaly_factor','course_change_factor','vessel_type_factor','axis_alignment_factor']
-              .map(k => `<div class="factor"><span>${c.evidence[k].note}</span><b>&times;${c.evidence[k].value.toFixed(2)}</b></div>`).join('')}
-          </div>
-        </div>`).join('')}
-      <div class="card dark-row">
-        <div style="display:flex;justify-content:space-between">
-          <span><b>Vessel not transmitting AIS</b></span>
-          <span class="v">${(dark.posterior_probability * 100).toFixed(1)}%</span>
-        </div>
-        <div class="bar"><i style="width:${(dark.posterior_probability / maxP * 100).toFixed(1)}%;background:#8957e5"></i></div>
-        <div class="reason">${dark.note}</div>
-      </div>
-      ${dark.posterior_probability > Math.max(0, ...candidates.candidates.map(c => c.posterior_probability))
-        ? '<div class="note warn">The most probable explanation is a vessel that was not transmitting AIS. No named candidate outranks it.</div>' : ''}
-      ${truth && truth.available ? `<div class="note">Ground truth for this injected case: <b>${truth.culprit_mmsi}</b> (${truth.culprit_type}), discharged ${truth.discharge_start_utc.replace('T',' ').slice(0,16)}Z. The pipeline never reads this file.</div>` : ''}`;
-  } else {
-    $('candidates').innerHTML = '<div class="note">no attribution run for this case</div>';
-  }
+  // --- case metadata and assumptions ---
+  const a = (posterior && posterior.assumptions) || [];
+  $('assumptions').innerHTML = `
+    ${manifest ? `
+      <div class="row"><span class="k">acquisition</span><span class="v">${manifest.t_obs_utc.replace('T', ' ').slice(0, 16)}Z</span></div>
+      <div class="row"><span class="k">region</span><span class="v" style="max-width:230px">${manifest.region}</span></div>
+      ${manifest.ais_is_synthetic ? '<div class="note warn"><b>AIS for this case is synthetic</b> and disclosed as such. No free bulk historical AIS source exists for this region; the problem statement permits generated data where real data is unavailable.</div>' : ''}` : ''}
+    ${a.length ? '<div class="note">' + a.map(x => '&bull; ' + x).join('<br>') + '</div>' : ''}`;
 
-  // --- assumptions ---
-  const a = (state.data.posterior && state.data.posterior.assumptions) || [];
-  $('assumptions').innerHTML = a.length
-    ? '<div class="note">' + a.map(x => '&bull; ' + x).join('<br>') + '</div>'
-    : '<div class="note">&mdash;</div>';
-
-  panelHandlers();
+  document.querySelectorAll('[data-lead]').forEach(el => {
+    el.onclick = () => {
+      const key = el.dataset.lead;
+      state.selectedVessel = state.selectedVessel === key ? null : key;
+      renderVerdict();
+      bindLeads();
+      render();
+    };
+  });
 }
 
-function panelHandlers() {
-  document.querySelectorAll('[data-mmsi]').forEach(el => {
+function bindLeads() {
+  document.querySelectorAll('[data-lead]').forEach(el => {
     el.onclick = () => {
-      state.selectedVessel = state.selectedVessel === el.dataset.mmsi ? null : el.dataset.mmsi;
-      renderPanel(); render();
+      const key = el.dataset.lead;
+      state.selectedVessel = state.selectedVessel === key ? null : key;
+      renderVerdict();
+      bindLeads();
+      render();
     };
   });
 }
 
 // ------------------------------------------------------------------ layers
 
-// Layers are split into three groups on purpose.
-//
-// The animation re-renders ~20 times a second. Rebuilding EVERY layer that
-// often starves deck.gl's asynchronous texture upload for the scene bitmap,
-// which never finishes and leaves the map blank -- the SAR backdrop simply
-// never appears, with no error anywhere. See P-20.
-//
-// So static layers are constructed once per case and reused by reference;
-// only the two particle layers are rebuilt per frame.
-
-function buildBaseLayers() {
-  const {manifest, posterior, field, coastline} = state.data;
+function buildLayers() {
+  const {manifest, detections, posterior, candidates, particles, field, coastline, image} = state.data;
+  if (!manifest) return [];
   const L = deck;
   const layers = [];
 
-  if (state.sceneImage) layers.push(new L.BitmapLayer({
-    id: 'scene',
-    image: state.sceneImage,
-    bounds: manifest.bounds,
-    opacity: 0.92,
+  if (image) layers.push(new L.BitmapLayer({
+    id: 'scene', image, bounds: manifest.bounds, opacity: 0.95,
   }));
 
   if (coastline) layers.push(new L.GeoJsonLayer({
@@ -287,55 +349,58 @@ function buildBaseLayers() {
     getLineColor: [120, 140, 165, 200], lineWidthMinPixels: 1.2,
   }));
 
-  // Posterior density as overlapping translucent discs, NOT deck.gl's
-  // HeatmapLayer: on this build that layer emits luma.gl binding errors.
-  // Discs are dumber, render correctly, and read the same.
-  if (field && field.cells.length) {
-    const lons = [...new Set(field.cells.map(c => c[0]))].sort((a, b) => a - b);
-    const stepDeg = lons.length > 1 ? lons[1] - lons[0] : 0.05;
-    const radiusM = stepDeg * 111320 * Math.cos(field.cells[0][1] * Math.PI / 180) * 0.85;
-    layers.push(new L.ScatterplotLayer({
-      id: 'posterior-density', data: field.cells,
-      getPosition: d => [d[0], d[1]],
-      getRadius: radiusM, radiusUnits: 'meters', stroked: false,
-      getFillColor: d => [137, 87, 229, Math.round(30 + 165 * Math.pow(d[2], 0.6))],
-    }));
-  }
+  // Overlapping translucent discs rather than HeatmapLayer, which emitted a wall
+  // of luma.gl binding warnings on this build and painted over the viewport.
+  if (field && field.cells && field.cells.length) layers.push(new L.ScatterplotLayer({
+    id: 'posterior-field', data: field.cells,
+    getPosition: d => [d[0], d[1]],
+    getRadius: 2600, radiusUnits: 'meters',
+    getFillColor: d => [137, 87, 229, Math.round(30 + 150 * d[2])],
+    stroked: false,
+  }));
 
   if (posterior && posterior.credible_regions) {
-    for (const [level, colour, width] of [['95', [137,87,229,160], 1.5], ['50', [200,165,255,240], 2.5]]) {
+    for (const [level, width, dash] of [['95', 1.5, true], ['50', 2.5, false]]) {
       layers.push(new L.PolygonLayer({
         id: `cr-${level}`, data: [posterior.credible_regions[level]],
         getPolygon: d => d.polygon_wgs84, stroked: true, filled: false,
-        getLineColor: colour, lineWidthMinPixels: width,
-        getLineWidth: width, lineWidthUnits: 'pixels',
+        getLineColor: dash ? [200, 162, 255, 170] : [216, 190, 255, 245],
+        getLineWidth: width, lineWidthUnits: 'pixels', lineWidthMinPixels: width,
       }));
     }
   }
-  return layers;
-}
 
-function buildOverlayLayers() {
-  const {detections, candidates} = state.data;
-  const L = deck;
-  const layers = [];
+  if (particles && particles.trails && particles.trails.length) {
+    const f = Math.min(state.frame, particles.n_frames - 1);
+    layers.push(new L.PathLayer({
+      id: 'trails', data: particles.trails,
+      getPath: t => t.slice(0, f + 1),
+      getColor: [88, 166, 255, 55], widthMinPixels: 1, getWidth: 1,
+      updateTriggers: {getPath: f},
+    }));
+    layers.push(new L.ScatterplotLayer({
+      id: 'heads', data: particles.trails.map(t => t[Math.min(f, t.length - 1)]),
+      getPosition: d => d, getRadius: 2, radiusUnits: 'pixels',
+      getFillColor: [120, 200, 255, 190], updateTriggers: {data: f},
+    }));
+  }
 
-  if (candidates && candidates.candidates) layers.push(new L.PathLayer({
-    id: 'tracks', data: candidates.candidates.slice(0, 6),
-    getPath: c => (c.track_geojson.geometry || {}).coordinates || [],
-    getColor: c => state.selectedVessel === c.mmsi ? [229, 83, 75, 255] : [229, 83, 75, 70],
-    getWidth: c => state.selectedVessel === c.mmsi ? 3 : 1.5,
-    widthUnits: 'pixels', widthMinPixels: 1.5,
-    updateTriggers: {getColor: state.selectedVessel, getWidth: state.selectedVessel},
-    pickable: true,
-  }));
+  if (candidates && candidates.candidates) {
+    layers.push(new L.PathLayer({
+      id: 'tracks', data: candidates.candidates.slice(0, 6),
+      getPath: c => (c.track_geojson.geometry || {}).coordinates || [],
+      getColor: c => state.selectedVessel === c.mmsi ? [229, 83, 75, 255] : [229, 83, 75, 70],
+      getWidth: c => state.selectedVessel === c.mmsi ? 3 : 1.5,
+      widthUnits: 'pixels', widthMinPixels: 1.5,
+      updateTriggers: {getColor: state.selectedVessel, getWidth: state.selectedVessel},
+      pickable: true,
+    }));
+  }
 
-  // Detections on top: the classification is the point of the whole screen.
   if (detections) layers.push(new L.PolygonLayer({
     id: 'detections', data: detections,
-    getPolygon: d => d.polygon_wgs84,
-    stroked: true, filled: true,
-    getFillColor: d => [...CLASS_COLOR[d.classification], d.classification === 'oil' ? 95 : 45],
+    getPolygon: d => d.polygon_wgs84, stroked: true, filled: true,
+    getFillColor: d => [...CLASS_COLOR[d.classification], d.classification === 'oil' ? 95 : 40],
     getLineColor: d => [...CLASS_COLOR[d.classification], 255],
     lineWidthMinPixels: 2, getLineWidth: 2, lineWidthUnits: 'pixels',
     pickable: true,
@@ -344,41 +409,35 @@ function buildOverlayLayers() {
   return layers;
 }
 
-function buildParticleLayers() {
-  const {particles} = state.data;
-  if (!particles || !particles.trails.length) return [];
-  const L = deck;
-  const f = Math.min(state.frame, particles.n_frames - 1);
-  return [
-    new L.PathLayer({
-      id: 'trails', data: particles.trails,
-      getPath: t => t.slice(0, f + 1),
-      getColor: [88, 166, 255, 55], widthMinPixels: 1, getWidth: 1,
-      updateTriggers: {getPath: f},
-    }),
-    new L.ScatterplotLayer({
-      id: 'heads', data: particles.trails.map(t => t[Math.min(f, t.length - 1)]),
-      getPosition: d => d, getRadius: 2, radiusUnits: 'pixels',
-      getFillColor: [120, 200, 255, 190],
-      updateTriggers: {data: f},
-    }),
-  ];
-}
-
 function render() {
-  if (!deckgl || !state.data || !state.data.manifest) return;
-  // Fresh instances every frame: deck.gl layers are immutable descriptors and
-  // it diffs them by id, so reusing instances is an anti-pattern.
-  deckgl.setProps({
-    layers: [...buildBaseLayers(), ...buildParticleLayers(), ...buildOverlayLayers()],
-  });
+  if (deckgl) deckgl.setProps({layers: buildLayers()});
 }
 
+// Fit the view to the case bounds instead of guessing a zoom. A fixed zoom
+// letterboxed a tall scene inside a wide viewport and wasted most of the screen.
 function fitView() {
   const b = state.data.manifest.bounds;
+  const el = $('map');
+  const w = el.clientWidth, h = el.clientHeight;
+  const TILE = 512, PAD = 0.92;
+
+  const mercY = (lat) => {
+    const s = Math.sin(lat * Math.PI / 180);
+    return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
+  };
+  const lonFrac = (b[2] - b[0]) / 360;
+  const latFrac = Math.abs(mercY(b[3]) - mercY(b[1]));
+
+  const zoom = Math.min(
+    Math.log2((w * PAD) / (TILE * lonFrac)),
+    Math.log2((h * PAD) / (TILE * latFrac)),
+  );
+
   deckgl.setProps({initialViewState: {
-    longitude: (b[0] + b[2]) / 2, latitude: (b[1] + b[3]) / 2,
-    zoom: 7.1, pitch: 0, bearing: 0,
+    longitude: (b[0] + b[2]) / 2,
+    latitude: (b[1] + b[3]) / 2,
+    zoom: Math.max(1, Math.min(zoom, 18)),
+    pitch: 0, bearing: 0, transitionDuration: 0,
   }});
 }
 
@@ -387,15 +446,20 @@ function fitView() {
 let timer = null;
 function play() {
   const p = state.data.particles;
-  if (!p || !p.trails.length) return;
+  if (!p || !p.trails || !p.trails.length) { $('tlabel').textContent = 'no particles'; return; }
   clearInterval(timer);
   state.frame = 0;
   timer = setInterval(() => {
     state.frame += 1;
-    if (state.frame >= p.n_frames) { clearInterval(timer); $('tlabel').textContent = 'backward proposal — complete'; }
-    else { $('tlabel').textContent = `backward proposal — ${(state.frame / p.n_frames * (p.lookback_hours || 0)).toFixed(1)} h before acquisition`; }
+    if (state.frame >= p.n_frames) {
+      clearInterval(timer);
+      $('tlabel').textContent = 'backward proposal — complete';
+    } else {
+      const h = state.frame / p.n_frames * (p.lookback_hours || 0);
+      $('tlabel').textContent = `backward proposal — ${h.toFixed(1)} h before acquisition`;
+    }
     render();
-  }, 60);
+  }, 45);
 }
 
 // -------------------------------------------------------------------- boot
@@ -407,31 +471,32 @@ function play() {
   }
   deckgl = new deck.Deck({
     canvas: 'deck-canvas',
-    onError: (e) => console.error('[deck]', e),
     initialViewState: {longitude: 11.5, latitude: 57.2, zoom: 7},
     controller: true,
     getTooltip: ({object}) => {
       if (!object) return null;
       if (object.classification) return {html:
-        `<div style="max-width:320px;padding:4px"><b>${object.classification.replace('_',' ').toUpperCase()}</b><br>
+        `<div style="max-width:320px;padding:4px"><b>${CLASS_LABEL[object.classification].toUpperCase()}</b><br>
          ${fmt(object.geometry.area_km2)} km&sup2; &middot; wind ${object.environment.wind_speed_ms.toFixed(1)} m/s<br>
          <span style="color:#8b97a7">${object.classification_reason}</span></div>`};
       if (object.mmsi) return {html: `<div style="padding:4px"><b>${object.mmsi}</b> ${object.vessel_type}<br>
-         ${(object.posterior_probability * 100).toFixed(1)}% under stated assumptions</div>`};
+         ${(object.posterior_probability * 100).toFixed(1)}% under stated model assumptions</div>`};
       return null;
     },
   });
 
-  window.deckgl = deckgl;  // exposed for debugging; this is a local tool
   const cases = await getJSON('/api/cases');
   const sel = $('case-select');
   sel.innerHTML = cases.map(c =>
-    `<option value="${c.case_id}"${c.ready ? '' : ' disabled'}>${c.case_id}${c.ready ? '' : '  (not exported)'}</option>`
+    `<option value="${c.case_id}"${c.ready ? '' : ' disabled'}>${c.case_id}${c.ready ? '' : '  (not built)'}</option>`
   ).join('');
   sel.onchange = () => loadCase(sel.value);
   $('play').onclick = play;
+  window.addEventListener('resize', () => { if (state.data) fitView(); });
 
-  const first = cases.find(c => c.ready) || cases[0];
+  // Prefer a case that actually contains a spill: it is the one worth opening on.
+  const ready = cases.filter(c => c.ready);
+  const first = ready.find(c => c.case_id.includes('spill')) || ready[0] || cases[0];
   if (first) { sel.value = first.case_id; await loadCase(first.case_id); }
   else $('loading').textContent = 'no cases built — run scripts/run_case.py';
 })();
