@@ -6,9 +6,9 @@
 
 **Smart India Hackathon · Problem Statement SIH26143 · NTRO**
 
-[![tests](https://img.shields.io/badge/tests-283%20passing-3fb950?style=flat-square)](tests/)
+[![tests](https://img.shields.io/badge/tests-288%20passing-3fb950?style=flat-square)](tests/)
 [![python](https://img.shields.io/badge/python-3.13-4d9fd6?style=flat-square)](requirements.txt)
-[![runtime](https://img.shields.io/badge/scene%20→%20ranking-14.5s-8957e5?style=flat-square)](Context/performance_review.md)
+[![runtime](https://img.shields.io/badge/scene%20→%20ranking-12s-8957e5?style=flat-square)](Context/performance_review.md)
 [![offline](https://img.shields.io/badge/offline-enforced%20in%20CI-f0883e?style=flat-square)](tests/test_offline.py)
 [![cost](https://img.shields.io/badge/infrastructure%20cost-%E2%82%B90-3fb950?style=flat-square)](#-everything-here-is-free)
 
@@ -109,6 +109,102 @@ The anti-cheating rules matter more than the harness:
 
 ---
 
+## 🎬 The demo, screen by screen
+
+Every screenshot below is the **live interface**, captured by [`scripts/capture_demo.py`](scripts/capture_demo.py) driving a real browser against a running server. Re-run it after any change and the screenshots follow. Nothing is mocked up.
+
+---
+
+### ① The full interface
+
+<div align="center">
+  <img src="docs/screenshots/01-interface.png" alt="Full interface: result panel on the left, SAR scene with overlays on the right" width="100%">
+</div>
+
+**What you're looking at.** Left panel, top to bottom: the **result**, then every dark patch the detector examined, then the inversion's own uncertainty numbers, then the case metadata and the assumptions every probability depends on. The map carries the Sentinel-1 σ⁰ scene with four things drawn over it — the confirmed slick (orange), the low-wind pocket the system refused to judge (blue), the source posterior (purple), and the backward particle trails fanning out from the slick.
+
+> **Observation.** This whole screen is produced by one command against one self-contained `Case` folder, in **12 seconds** from raw scene to ranked vessels (14.5 s including the interface bundle). Nothing is fetched at display time — the entire demo runs with the network adapter disabled, and that is [enforced by a test](tests/test_offline.py), not by remembering to check.
+
+---
+
+### ② The result — and the answer that isn't a name
+
+<div align="center">
+  <img src="docs/screenshots/02-result.png" alt="Result block: 179 to 92 to 2 funnel, with the dark-vessel hypothesis ranked first at 27.7%" width="72%">
+</div>
+
+**What you're looking at.** The funnel is the deliverable: **179 vessels** in the time window, **92** survive the spatio-temporal filter, **2** clear the reporting threshold. Below it, candidates ranked by posterior probability — with **"Vessel not transmitting AIS" competing in the same list**, not appended as a footnote.
+
+> **Observation, and it is the important one.** The dark-vessel hypothesis leads at **27.7%**, while the top named vessel sits at 2.8%. The true source — known to us, never shown to the pipeline — is the Tug at **rank 3, 1.9%**.
+>
+> **That is the correct output, not a failure.** The 95% credible region is 1,107 km² and contains 92 vessels. No single ship's track explains the slick well enough to outrank "nobody was transmitting", so the system says exactly that. A system without this row would have confidently named the Tanker at 2.8% — a 2.8% belief presented as an accusation.
+>
+> Getting a *lower* number for the true culprit than for "I don't know" is the system working. The green bar shows we recovered it into the shortlist; the purple bar shows we are not pretending that's an identification.
+
+---
+
+### ③ What the system refuses to judge
+
+<div align="center">
+  <img src="docs/screenshots/03-abstention.png" alt="Detection list with the 206 square kilometre abstention expanded, showing its reason" width="72%">
+</div>
+
+**What you're looking at.** Five dark patches, collapsed to one line each — class, area, wind speed — expanded on click. The largest is **206 km²**, and the system declines to call it anything:
+
+> *"Wind 1.8 m/s is below the 3 m/s detectability threshold; at this wind speed the sea surface is already smooth and oil cannot produce radar contrast. Outside detectability window."*
+
+> **Observation.** That patch is not a bug in the scene — it is a genuine low-wind look-alike, and it is dark for exactly the reason the message gives. Below ~3 m/s **no oil–water contrast is physically possible**, so any confident label there would be unsupportable regardless of what the classifier produced.
+>
+> The gate is a hard override enforced in two places — the classifier *and* the data contract — so `SlickDetection` cannot even be constructed with `oil` at 1.8 m/s. Across the built cases, **9 of 14 dark patches are refused**, each with its wind speed stated.
+
+---
+
+### ④ Selecting a candidate
+
+<div align="center">
+  <img src="docs/screenshots/04-candidate-selected.png" alt="A candidate vessel selected, its AIS track highlighted against the posterior" width="100%">
+</div>
+
+**What you're looking at.** Clicking a lead highlights that vessel's reconstructed AIS track against the posterior. Each candidate carries its own evidence breakdown — AIS gap relative to the local baseline, speed anomaly against the vessel's own transit median, course change, vessel type, and how closely the slick's long axis lines up with its heading.
+
+> **Observation.** The candidate tracks pass *through* the credible region — which is why they were shortlisted — but none passes through the high-density core in a way that dominates. That visual is the honest picture of the problem: proximity is common, and proximity alone is not evidence. It is why we score vessels by **forward-simulating what each one would have produced** rather than by measuring how close they came.
+
+---
+
+### ⑤ A scene with no oil in it at all
+
+<div align="center">
+  <img src="docs/screenshots/05-clean-scene.png" alt="The clean scene: no oil detected, six dark patches all accounted for" width="100%">
+</div>
+
+<div align="center">
+  <img src="docs/screenshots/06-clean-result.png" alt="Green result panel reading No oil detected in this scene" width="60%">
+</div>
+
+**What you're looking at.** The same detector, same thresholds, same trained gate — run on a scene containing no oil whatsoever. It finds **six dark patches** and explains all six: five outside the wind detectability window, one classified as a look-alike.
+
+> **Observation.** **Zero false positives**, and the interface reports it as a completed analysis rather than an empty screen. This is the counterpart to ②: a detector that finds oil everywhere is useless, and the only way to know ours doesn't is to run it where there is none.
+>
+> It also makes the abstention rate legible. On this scene it is 5/6 — high, because the scene genuinely contains a large calm region. The 5–15% target in our design applies across a *corpus*, not a single scene, and reporting the per-scene figure honestly is more useful than reporting an average that hides it.
+
+---
+
+### What we observed overall
+
+| | Observed | Why it matters |
+|---|---|---|
+| Scene → ranked vessels | **12.1 s** | 14.5 s including the UI bundle. Fast enough to re-run live during questioning |
+| Cold rebuild of everything | **42 s** | The demo can be reconstructed from an empty `data/` directory |
+| False positives on the clean scene | **0** | The detector is not trigger-happy |
+| Dark patches refused, with reason | **9 of 14** | Abstention is the default when physics forbids an answer |
+| Dark hypothesis vs top named vessel | **27.7% vs 2.8%** | The system declines to identify when it cannot |
+| True culprit recovered into the shortlist | **rank 3 of 92** | Recovered, without being overclaimed |
+| Network calls during the demo | **0** | Enforced by test, not by discipline |
+
+**The single most important thing on these five screens** is that two of them are the system saying *no* — the 206 km² patch it refuses to judge, and the clean scene where it finds nothing. A demo that only shows detections proves eagerness. Showing what it declines to flag is the only way to demonstrate judgment.
+
+---
+
 ## 🚀 Quickstart
 
 Everything runs offline. No credentials, no downloads, no GPU required.
@@ -137,7 +233,8 @@ Open **http://127.0.0.1:8000** — a deck.gl interface with animated particles, 
 ```bash
 python scripts/truth_harness.py --n 24     # end-to-end evaluation
 python scripts/audit.py                    # 12 pre-demo safety checks
-python scripts/make_figures.py             # regenerate the figures above
+python scripts/make_figures.py             # regenerate the analysis figures
+python scripts/capture_demo.py             # re-capture the demo screenshots
 python scripts/fetch_real_data.py --check  # real-data readiness (downloads nothing)
 python -m pytest tests/ -q                 # 283 tests
 ```

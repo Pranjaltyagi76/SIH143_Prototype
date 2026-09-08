@@ -56,8 +56,8 @@ A discharge from a moving vessel is a line source in space-time, and AIS already
 
 | | |
 |---|---|
-| End to end, scene → ranked vessels | **14.5 s** (budget 60 s) |
-| Tests | **283 passing** |
+| End to end, scene → ranked vessels | **12.1 s** (14.5 s with the UI bundle; budget 60 s) |
+| Tests | **288 passing** |
 | Calibration at 50% / 68% | 0.50 / 0.67 — honest |
 | Calibration at 90% / 95% | 0.75 / 0.83 — **below target**, cause isolated (P-22) |
 | Culprit in candidate set | **1.00** |
@@ -81,12 +81,16 @@ That is now a rule, and it is enforced in the test suite:
 
 ---
 
-## Regenerating the figures
+## Regenerating the figures and screenshots
 
-The figures in the root README are drawn from real pipeline output, not illustrated:
+Nothing in the root README is illustrated. The analysis figures are drawn from
+files the pipeline produced, and the demo screenshots are captured from the
+running interface in a real browser:
 
 ```bash
-python scripts/make_figures.py
+python scripts/make_figures.py                              # analysis figures
+uvicorn src.api.main:app --host 127.0.0.1 --port 8000       # then, separately:
+python scripts/capture_demo.py                              # demo screenshots
 ```
 
 A figure that looks wrong means the pipeline is wrong.
